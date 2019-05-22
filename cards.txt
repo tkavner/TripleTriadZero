@@ -1,0 +1,252 @@
+Dodo,1,4,2,3,4
+Tonberry,1,2,2,7,2
+Sabotender,1,4,3,3,3
+Spriggan,1,2,3,4,4
+Pudding,1,2,4,3,5
+Bomb,1,3,4,3,3
+Mandragora,1,4,2,5,3
+Coblyn,1,3,3,3,4
+Morbol,1,5,2,5,2
+Coeurl,1,2,5,2,5
+Ahriman,1,5,5,2,2
+Goobbue,1,2,5,5,2
+Gaelicat,1,4,1,1,7
+Deepeye,1,1,3,7,2
+Apkallu,1,3,4,4,1
+Colibri,1,6,1,4,1
+Opo-opo,1,1,4,2,6
+Mossling,1,5,2,5,1
+Koja,1,3,2,1,6
+Wanyudo & Katasharin,1,6,1,1,5
+Karakuri Hanya,1,7,1,1,4
+Chocobo,1,3,7,2,1
+Amaljaa,1,1,4,7,1
+Ixal,1,6,1,3,4
+Sylph,1,2,4,5,4
+Kobold,1,2,2,4,6
+Sahagin,1,4,5,3,3
+Moogle,1,2,1,3,7
+Namazu,1,1,6,1,5
+Magitek Death Claw,1,4,3,2,3
+Tataru Taru,1,7,2,3,2
+Stormblood Tataru Taru,1,1,4,1,7
+Archaeornis,2,5,4,6,5
+Paissa,2,4,6,3,6
+Dhalmel,2,6,5,3,5
+Bandersnatch,2,6,6,3,4
+Crawler,2,7,7,3,2
+Poroggo,2,6,3,7,3
+Siren,2,3,6,7,2
+Ultros & Typhon,2,2,3,6,7
+Demon Wall,2,6,7,2,3
+Succubus,2,7,3,2,6
+Chimera,2,7,7,2,2
+Blue Dragon,2,2,2,7,7
+Liquid Flame,2,4,3,6,6
+Lost Lamb,2,7,3,4,5
+Adamantoise,2,5,7,4,4
+Chapuli,2,7,2,2,6
+Ango,2,4,2,7,4
+Hatamoto,2,2,7,5,6
+Yukinko,2,3,7,3,5
+Muud Suud,2,3,7,1,7
+Dvergr,2,4,5,3,7
+Fat Chocobo,2,5,5,5,5
+Scarface Bugaal Ja,2,6,6,2,6
+Frixio,2,6,2,6,6
+Mutamix Bubblypots,2,2,6,6,6
+Memeroon,2,6,6,6,2
+Vanu Vanu,2,2,6,4,7
+Gnath,2,6,3,7,3
+Delivery Moogle,2,5,5,6,3
+Kojin,2,4,5,5,4
+Ananta,2,3,7,5,2
+Qiqirn Meateater,2,1,5,7,5
+Livia sas Junius,2,3,7,7,1
+Rhitahtyn sas Arvina,2,7,1,3,7
+Magitek Colossus,2,6,3,6,3
+Magitek Vanguard,2,3,5,4,7
+Magitek Gunship,2,3,5,5,5
+Hoary Boulder & Coultenet,2,2,7,2,7
+Momodi Modi,2,7,5,5,3
+Baderon Tenfingers,2,3,7,5,5
+Mother Miounne,2,5,5,3,7
+Lolorito Nanarito,2,4,3,7,3
+Gerolt,2,1,7,3,7
+Rhoswen,2,5,6,4,6
+Carvallain de Gorgagne,2,2,7,7,2
+Biggs & Wedge,2,5,3,7,5
+Yugiri Mistwalker,2,7,7,1,3
+Gibrillont,2,2,6,3,6
+Honoroit,2,7,2,7,2
+Laniaitte de Haillenarte,2,7,6,3,3
+Gold Saucer Attendant,2,4,7,1,6
+Mnaago,2,4,1,4,7
+Kotokaze,2,5,6,2,6
+Guidance Node,2,6,4,4,4
+Tansui,2,6,2,3,7
+Ejika Tsunjika,2,7,1,1,7
+Behemoth,3,7,8,4,2
+Vedrfolnir,3,8,2,7,4
+Darkscale,3,2,8,4,7
+Coeurlregina,3,5,5,5,8
+Brachiosaur,3,8,4,5,4
+Fenrir,3,7,3,6,4
+Kraken,3,3,6,6,6
+Vicegerent to the Warden,3,7,1,7,5
+Ferdiad,3,4,6,8,4
+Griffin,3,5,1,7,8
+Tioman,3,1,5,8,7
+Byblos,3,8,4,1,7
+Waukkeon,3,1,6,7,7
+Curator,3,4,6,4,7
+Progenitrix,3,6,6,3,6
+Belladonna,3,3,7,3,7
+Calcabrina,3,6,6,6,3
+Kuribu,3,8,3,2,7
+Strix,3,5,7,1,7
+Lava Scorpion,3,3,8,5,5
+Mammoth,3,6,3,8,3
+Phoebad,3,8,8,3,1
+Hrodric Poisontongue,3,2,7,6,7
+Genbu,3,7,7,1,7
+Byakko,3,7,1,7,7
+Qitian Daisheng,3,3,8,4,8
+Hiruko,3,4,7,5,7
+Happy Bunny,3,3,8,7,3
+Louhi,3,5,8,2,7
+Tokkapchi,3,2,6,6,7
+Mist Dragon,3,5,8,5,5
+Suzaku,3,1,7,7,7
+Pazuzu,3,4,8,4,7
+Penthesilea,3,7,2,8,5
+Provenance Watcher,3,7,4,4,8
+Seiryu,3,7,7,7,1
+Alpha,3,6,6,6,6
+Phlegethon,3,1,7,6,7
+Echidna,3,6,4,7,4
+Rofocale,3,4,7,1,8
+Moglin,3,8,5,4,5
+Roundrox,3,2,2,8,8
+Manxome Molaa Ja Ja,3,3,7,2,8
+Tozol Huatotl,3,7,6,6,2
+Lupin,3,3,3,8,7
+Ifrit,3,7,1,6,7
+Titan,3,1,7,7,6
+Garuda,3,7,6,1,7
+Good King Moggle Mog XII,3,7,6,7,1
+Alexander Prime,3,7,3,2,8
+Susano,3,2,8,3,8
+Lakshmi,3,3,7,7,5
+Nero tol Scaeva,3,4,1,8,7
+Magitek Predator,3,5,7,4,5
+Magitek Sky Armor,3,6,2,6,7
+Grynewaht,3,7,4,7,4
+Asahi,3,8,4,1,8
+Prometheus,3,6,5,8,3
+Thancred,3,2,3,8,7
+Papalymo & Yda,3,3,7,8,2
+Yshtola,3,7,8,1,4
+Urianger,3,8,1,4,7
+Arenvald,3,8,4,8,2
+Gilgamesh & Enkidu,3,8,3,7,3
+Raya-O-Senna & A-Ruhn-Senna,3,5,6,6,6
+Godbert Manderville,3,6,6,5,6
+Mistbeard,3,5,6,7,6
+Estinien,3,8,8,2,3
+Lucia,3,8,2,3,8
+Ysayle,3,4,8,8,1
+Hilda,3,1,4,8,8
+Matoya,3,8,3,8,1
+Count Edmont de Fortemps,3,1,8,3,8
+Haurchefant,3,7,1,5,8
+Artoirel de Fortemps,3,4,7,3,7
+Emmanellain de Fortemps,3,7,4,7,3
+Pipin Tarupin,3,6,5,6,6
+Julyan Manderville,3,6,6,5,7
+Kal Myhk,3,1,8,4,8
+Charibert,3,7,8,4,3
+Brendt Brennan & Bremondt,3,4,7,6,5
+The Griffin,3,8,8,4,1
+Roland,3,2,7,8,3
+Rasho,3,4,7,8,2
+Cirina,3,3,5,6,8
+Magnai,3,6,7,4,4
+Sadu,3,6,6,7,4
+Fordola rem Lupis,3,5,8,6,3
+Brute Justice,4,7,7,7,7
+Xande,4,9,4,6,7
+Calofisteri,4,5,8,7,8
+Diabolos Hollow,4,4,4,8,9
+Argath Thadalfus,4,9,2,5,8
+Great Gold Whisker,4,6,9,6,7
+Odin,4,8,8,1,8
+Ramuh,4,8,1,8,8
+Leviathan,4,8,8,8,1
+Shiva,4,1,8,8,8
+Ravana,4,9,7,8,1
+Bismarck,4,1,9,7,8
+Sephirot,4,6,8,8,6
+Shinryu,4,7,8,8,2
+Tsukuyomi,4,2,7,7,8
+Ultima Weapon,4,7,8,9,1
+Nael van Darnus,4,3,9,3,9
+Armored Weapon,4,3,5,9,7
+Yotsuyu,4,9,2,8,6
+Minfilia,4,9,8,3,5
+Alphinaud & Alisaie,4,9,3,3,9
+Louisoix Leveilleur,4,9,4,9,3
+Flhaminn,4,9,7,3,7
+Heavensward Thancred,4,8,1,7,9
+Heavensward Yshtola,4,9,9,2,5
+Krile,4,2,8,8,7
+Lyse,4,6,9,1,8
+Lahabrea,4,4,9,4,8
+Cid Garlond,4,5,9,9,2
+Unei & Doga,4,6,8,6,8
+Aymeric,4,1,5,9,9
+Senor Sabotender,4,9,5,7,6
+Vidofnir,4,8,6,8,6
+Tiamat,4,9,6,5,6
+Gigi,4,6,8,4,7
+Hancock,4,8,9,1,7
+Stormblood Gilgamesh,4,9,4,8,4
+Cloud of Darkness,5,7,10,7,6
+Yiazmat,5,7,6,10,7
+Ultima the High Seraph,5,6,10,7,7
+Bahamut,5,9,5,9,6
+Sophia,5,10,8,5,6
+Zurvan,5,3,7,8,10
+Gaius van Baelsar,5,4,10,5,9
+Regula van Hydrus,5,8,8,6,8
+Zenos yae Galvus,5,6,6,7,10
+Stormblood Alphinaud & Alisaie,5,6,8,8,8
+Hildibrand & Nashu Mhakaracca,5,1,8,10,8
+Merlwyb Bloefhiswyn,5,5,9,10,3
+Kan-E-Senna,5,9,10,1,7
+Raubahn Aldynn,5,6,2,9,10
+Nanamo Ul Namo,5,10,6,4,8
+Nidhogg,5,10,7,3,8
+Hraesvelgr,5,7,7,10,6
+Midgardsormr,5,3,8,10,7
+Archbishop Thordan VII,5,7,1,10,9
+Hien,5,2,10,5,10
+Raubahn & Pipin,5,1,10,10,6
+Hisui & Kurenai,5,10,2,7,9
+Gosetsu,5,10,5,10,2
+Yojimbo & Daigoro,5,10,8,1,8
+Omega,5,6,9,3,10
+Warrior of Light,5,10,2,5,10
+Firion,5,10,5,10,1
+Onion Knight,5,8,2,8,10
+Cecil Harvey,5,4,10,4,10
+Bartz,5,4,4,10,10
+Terra Branford,5,10,10,2,5
+Cloud,5,9,3,9,8
+Squat Leaninhard,5,6,10,10,1
+Zidane Tribal,5,5,10,6,8
+Tidus,5,10,7,1,9
+Shantotto,5,4,9,7,9
+Vaan,5,1,7,10,9
+Lightning,5,9,1,7,10
+Noctis Lucis Caelum,5,7,10,9,1
