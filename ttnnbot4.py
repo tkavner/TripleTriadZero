@@ -259,6 +259,10 @@ class TripleTriadBot(object):
                 print("Saved network {} to file!".format(0))
             self.test_network(handdata, number_of_games = numgames)
 
+    '''
+    Modified version of play_games(...), meant for a human player to face the bot
+    Callable from a shell, directory is deprecated, plays a single game, records score
+    '''
     def playAgainstBot(self, directory = "nn10/"):
 
         stringedGamesPlayed = ""
@@ -386,7 +390,7 @@ class TripleTriadBot(object):
 
     returns: best choice of the network after MCTS refinement
 
-    Essentially out implementation (with optimization) fucntions as such:
+    Essentially our implementation (with optimization) functions as such:
 
     (1) Initial Call to  MCTS --> (2) get an initial output neural network to work with --> (3) sort options -->
     (4) validate options --> (5) generate next layer --> (6) call next layer of MCTS --> goto (3) until you reach bottom --> add scores to find best move
@@ -497,27 +501,27 @@ class TripleTriadBot(object):
             else:
                 card = gameboard.initialP2Hand[validIndexes[i] % 5]
             pos = validIndexes[i] // 5
-            if validIndexes[i] % 5 >= 3:
-                if (isP1):
-                    if gameboard.turn % 2 == 0:
-                        redhand = [value for value in gameboard.initialP1Hand]
-                        card = redhand[validIndexes[i] % 5]
-                    else:
-                        redhand = [value for value in gameboard.initialP2Hand]
-                        #print(len(redhand))
-                        #print(len(redhand))
-                        redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
-                        card = redhand[validIndexes[i] % 5]
-                else:
-                    if gameboard.turn % 2 == 0:
-                        redhand = [value for value in gameboard.initialP1Hand]
-                        #print(len(bluehand))
-                        redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
-                        card = redhand[validIndexes[i] % 5]
-                    else:
-                        redhand = [value for value in gameboard.initialP2Hand]
-                        card = redhand[validIndexes[i] % 5]
             gbCopy = gameboard.clone()
+            if (isP1):
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    #print(len(redhand))
+                    #print(len(redhand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
+                    card = redhand[validIndexes[i] % 5]
+            else:
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    #print(len(bluehand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    card = redhand[validIndexes[i] % 5]
+
             gbCopy.playCard(card, pos)
 
             gbCopies.append(gbCopy)
@@ -533,12 +537,12 @@ class TripleTriadBot(object):
 
             #now we ship off the values to next layer of the MCTS
             for i in range(len(validIndexes)):
-                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, not isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i])
+                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i])
                 scores[i] = mctsdata
         else:
             #then next turn will not be using its output data from the neural network, so we simply have it skip calculating the final turn
             for i in range(len(validIndexes)):
-                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, not isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False)
+                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False)
                 scores[i] = mctsdata
 
         #score summation / choice evaluation
@@ -568,6 +572,7 @@ class TripleTriadBot(object):
         pos = bestIndex // 5
 
         if (bestIndex == -1): #if for some reason we found no moves, just find a valid move! This should never happen, but if it does this will always generate a valid move.
+            print("Failed to find a valid move! This is a bug!")
             for i in range(45):
                 if (gameboard.turn % 2 == 0):
                     card = gameboard.initialP1Hand[i % 5]
@@ -580,6 +585,7 @@ class TripleTriadBot(object):
                 if (gameboard.isValidMove(card, pos)):
                     bestIndex = i
                     break
+
 
 
         #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
@@ -657,7 +663,7 @@ class TripleTriadBot(object):
                     for i in range (5):
                         bestCardsInTests[self.allcards.index(p1[i])] += 1
             print(gameboard.toFileString(self.allcards))
-        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.535 and (winsAsP1) / (winsAsP1 + lossesAsP1) > 0.435 and (winsAsP2) / (winsAsP2 + lossesAsP2) > 0.435:
+        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.54:
             self.currentModelID += 1
             del self.testnet[0]
             self.testnet = [None]
@@ -846,6 +852,63 @@ class Gameboard(object):
         for i in range(len(hand)):
             if (self.turn % 2 == 0):
                 if isP1:
+                    if hand[i].stars == 5 and self.p1Hidden[self.initialP1Hand.index(hand[i])]:
+                        contains5StarHidden = True #whether or not a 5 star is played is simple enough to figure out so well just 'cheat' on our algorithm
+                        break
+                else:
+                    if hand[i].stars == 5 and self.p1Hidden[self.initialP1Hand.index(hand[i])]:
+                        contains5StarHidden = True #whether or not a 5 star is played is simple enough to figure out so well just 'cheat' on our algorithm
+                        break
+            else:
+                if isP1:
+                    if hand[i].stars == 5 and self.p2Hidden[self.initialP2Hand.index(hand[i])]:
+                        contains5StarHidden = True #whether or not a 5 star is played is simple enough to figure out so well just 'cheat' on our algorithm
+                        break
+                else:
+                    if hand[i].stars == 5 and self.p2Hidden[self.initialP2Hand.index(hand[i])]:
+                        contains5StarHidden = True #whether or not a 5 star is played is simple enough to figure out so well just 'cheat' on our algorithm
+                        break
+        #make a list of all hidden indexes and replace all hidden cards with our wildcard
+        hiddenIndexes = []
+        if self.turn % 2 == 0:
+            if isP1:
+                for i in range(len(hand)):
+                    if self.p1Hidden[self.initialP1Hand.index(hand[i])]:
+                        hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
+                        hiddenIndexes.append(i)
+            else:
+                for i in range(len(hand)):
+                    if self.p1Hidden[self.initialP1Hand.index(hand[i])]:
+                        hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
+                        hiddenIndexes.append(i)
+        else:
+            if isP1:
+                for i in range(len(hand)):
+                    if self.p2Hidden[self.initialP2Hand.index(hand[i])]:
+                        hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
+                        hiddenIndexes.append(i)
+            else:
+                for i in range(len(hand)):
+                    if self.p2Hidden[self.initialP2Hand.index(hand[i])]:
+                        hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
+                        hiddenIndexes.append(i)
+        #replace a random hidden card with 5 star wild
+        if (contains5StarHidden):
+            if len(hiddenIndexes) > 1:
+                hand[hiddenIndexes[random.randint(0, len(hiddenIndexes) - 1)]] = Card(["Five Star Wild", 5, 10, 10, 10, 10])
+            else:
+                hand[hiddenIndexes[0]] = Card(["Five Star Wild", 5, 10, 10, 10, 10])
+        return hand
+
+    '''
+    Yes this is actually necessary. Will thing of a better name / implementation later.
+    '''
+    def flipHiddenCards2(self, hand, isP1, allcards, normalcards, legendarycards, cardnamedict):
+        contains5StarHidden = False
+        #find out if there is a 5 star in their hand, this is easy to compute (check hand, check board) and always computable so we just cheat to save time
+        for i in range(len(hand)):
+            if (self.turn % 2 == 0):
+                if isP1:
                     if hand[i].stars == 5 and self.p2Hidden[self.initialP2Hand.index(hand[i])]:
                         contains5StarHidden = True #whether or not a 5 star is played is simple enough to figure out so well just 'cheat' on our algorithm
                         break
@@ -886,13 +949,6 @@ class Gameboard(object):
                     if self.p2Hidden[self.initialP2Hand.index(hand[i])]:
                         hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
                         hiddenIndexes.append(i)
-        #replace a random hidden card with 5 star wild
-        if (contains5StarHidden):
-            if len(hiddenIndexes) > 1:
-                hand[hiddenIndexes[random.randint(0, len(hiddenIndexes) - 1)]]
-            else:
-                hand[hiddenIndexes[0]] = Card(["Three Star Wild", 3, 10, 10, 10, 10])
-        return hand
 
     def getGameboardInputArray(self, allcards, normalcards, legendarycards, cardnamedict, isP1 = False, hideCards = True):
         redhand = self.p1Hand.copy() #TODO: dont actually call them this! fix at some point
@@ -901,16 +957,15 @@ class Gameboard(object):
         if hideCards:
             if (self.turn % 2 == 0):
                 if isP1:
-                    bluehand = self.flipHiddenCards(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
                 else:
-                    redhand = self.flipHiddenCards(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
             else:
                 if isP1:
-                    redhand = self.flipHiddenCards(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
                 else:
-                    bluehand = self.flipHiddenCards(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
                 #print(len(redhand))
-#
 
 
         input = [0] * 145 #input size as described in the network architecture in TripleTriadBot init
