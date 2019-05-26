@@ -91,7 +91,6 @@ class TripleTriadBot(object):
             model.add(keras.layers.Dropout(.5))
             model.add(keras.layers.Flatten())
             model.add(keras.layers.Dense(45, activation='softmax'))
-
             model.add(keras.layers.Dense(45, activation='softmax'))
             model.add(keras.layers.Reshape((1, 45)))
 
@@ -111,7 +110,8 @@ class TripleTriadBot(object):
         for i in range(1):
             self.testnet.append(tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID)))
         random.seed(datetime.datetime.now()) #quality method of seeding random hand generation
-
+        self.bestCardsInTests = [0] * len(self.allcards)
+        self.totalCardsInTests = [0] * len(self.allcards)
     def getBestNetworkMove(self, outputFromNN, gameboard, shouldBeRandom, training = True):
 
         reshapedOutput = outputFromNN.reshape(45)
@@ -273,13 +273,13 @@ class TripleTriadBot(object):
         p2 = self.generate_random_hand()
         youAreP1 = isP1 = random.randint(0,1)==0
 
-        if youAreP1:
-            p2 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["MerlwybBloefhiswyn"]]]
+        #if youAreP1:
+            #p2 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["MerlwybBloefhiswyn"]]]
             #p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
 
 
-        else:
-            p1 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["TerraBranford"]]]
+        #else:
+            #p1 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["TerraBranford"]]]
             #p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
 
         random.shuffle(p1)
@@ -546,7 +546,7 @@ class TripleTriadBot(object):
                 scores[i] = mctsdata
 
         #score summation / choice evaluation
-        bestScore = -1000
+        bestScore = -10000000
         bestIndex = -1
         scoreIndex = -70
         for i in range(len(validIndexes)):
@@ -584,6 +584,7 @@ class TripleTriadBot(object):
 
                 if (gameboard.isValidMove(card, pos)):
                     bestIndex = i
+                    scoreIndex = 0
                     break
 
 
@@ -606,7 +607,7 @@ class TripleTriadBot(object):
         tiesAsP2 = 0
         lossesAsP1 = 0
         lossesAsP2 = 0
-        bestCardsInTests = [0] * len(self.allcards)
+
         for i in range(number_of_games):
             #p1, p2, score = handdata[i]
             #isP1 = score > 0
@@ -639,49 +640,48 @@ class TripleTriadBot(object):
 
                 #print(outputFromNN.shape)
                 gameboard.playCard(cardToPlay, posToPlay)
+            for i in range (5):
+                self.totalCardsInTests[self.allcards.index(p1[i])] += 1
+                self.totalCardsInTests[self.allcards.index(p2[i])] += 1
             if isP1:
                 if gameboard.score > 0:
                     winsAsP1 +=1
                     for i in range (5):
-                        bestCardsInTests[self.allcards.index(p1[i])] += 1
+                        self.bestCardsInTests[self.allcards.index(p1[i])] += 1
 
                 elif gameboard.score == 0:
                     tiesAsP1 +=1
                 else:
                     lossesAsP1 += 1
                     for i in range (5):
-                        bestCardsInTests[self.allcards.index(p2[i])] += 1
+                        self.bestCardsInTests[self.allcards.index(p2[i])] += 1
             else:
                 if (gameboard.score < 0):
                     winsAsP2 +=1
                     for i in range (5):
-                        bestCardsInTests[self.allcards.index(p2[i])] += 1
+                        self.bestCardsInTests[self.allcards.index(p2[i])] += 1
                 elif gameboard.score == 0:
                     tiesAsP2 +=1
                 else:
                     lossesAsP2 += 1
                     for i in range (5):
-                        bestCardsInTests[self.allcards.index(p1[i])] += 1
+                        self.bestCardsInTests[self.allcards.index(p1[i])] += 1
             print(gameboard.toFileString(self.allcards))
-        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.54:
+        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.535:
             self.currentModelID += 1
             del self.testnet[0]
             self.testnet = [None]
             for i in range(1):
                 self.testnet[0] = tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID))
-            del self.net[0]
-            self.net = [None]
-            self.load()
+
             print("Better network found! New network model is: {}".format(self.currentModelID))
         else:
-            del self.testnet[0]
-            self.testnet = [None]
-            self.testnet[0] = tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID))
+
 
             print("Could not find better network!")
         print("{} W / {} T / {} L games against the dummy network as Player 1".format(winsAsP1, tiesAsP1, lossesAsP1))
         print("{} W / {} T / {} L games against the dummy network as Player 2".format(winsAsP2, tiesAsP2, lossesAsP2))
-        with open("cardstats1.txt", "w") as f:
+        with open("cardstats{}.txt".format(self.currentModelID), "w") as f:
             usedIndexes = [False] * len(self.allcards)
             for i in range(len(self.allcards)):
                 bestIndex = -1
@@ -689,12 +689,15 @@ class TripleTriadBot(object):
                 for j in range(len(self.allcards)):
                     if (usedIndexes[j]):
                         continue
-                    elif (bestValue < bestCardsInTests[j]):
-                        bestValue = bestCardsInTests[j]
+                    elif self.totalCardsInTests[j] == 0 and bestValue < 0:
+                        bestValue = 0
+                        bestIndex = j
+                    elif self.totalCardsInTests[j] > 0 and bestValue < self.bestCardsInTests[j] / self.totalCardsInTests[j]:
+                        bestValue = self.bestCardsInTests[j] / self.totalCardsInTests[j]
                         bestIndex = j
 
                 usedIndexes[bestIndex] = True
-                f.write("{}:{}\n".format(self.allcards[bestIndex].name, bestValue))
+                f.write("{}:{}% ({}/{})\n".format(self.allcards[bestIndex].name, 100 * bestValue, self.bestCardsInTests[bestIndex], self.totalCardsInTests[bestIndex]))
     '''
     Unused method that converts a network output to its card and position and returns it
     '''
