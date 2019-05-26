@@ -18,6 +18,20 @@ import os
 import datetime
 import time
 
+#helper methods to manage card files
+def make_modified_cardlist(cutoff, statsfile, starterfile = 'cards.txt', outputfile = 'cardslimited.txt'):
+    normal, legendary, allcards, cardnamedict = make_card_data(cardfile = starterfile)
+
+    with open(statsfile) as f:
+        carddatarawunsplit = f.read()
+    carddataraw = carddatarawunsplit.split("\n")
+    with open(outputfile, "w") as fo:
+        for i in range(0, len(carddataraw) - 1):
+            temp = carddataraw[i].split(":")[1]
+            if float(temp[0:temp.index("%")]) > cutoff:
+                card = allcards[cardnamedict[carddataraw[i].split(":")[0]]]
+                fo.write("{},{},{},{},{},{}\n".format(card.name, card.stars, card.left, card.up, card.right, card.down))
+
 def make_card_data(cardfile = 'cards.txt'):
     with open(cardfile) as f:
         cardnamesrawunsplit = f.read()
@@ -45,11 +59,11 @@ def make_card_data(cardfile = 'cards.txt'):
 
 class TripleTriadBot(object):
 
-    def __init__(self, currentModelID):
+    def __init__(self, currentModelID, cardfile = 'cards.txt'):
         self.testnet = []
         self.currentModelID = currentModelID
 
-        self.normal, self.legendary, self.allcards, self.cardnamedict = make_card_data()
+        self.normal, self.legendary, self.allcards, self.cardnamedict = make_card_data(cardfile = cardfile)
         self.net = [] #Array if you want to make an array of networks (currently singleton array)
 
         self.playerrecord = [0,0,0] #Record of player wins and losses
@@ -257,7 +271,7 @@ class TripleTriadBot(object):
 
                 tf.keras.models.save_model(self.net[0], "ttnn/finalnetworktf{}.txt".format(self.currentModelID + 1))
                 print("Saved network {} to file!".format(0))
-            self.test_network(handdata, number_of_games = numgames)
+            self.test_network(handdata, number_of_games = numgames, shouldUpdate = True)
 
     '''
     Modified version of play_games(...), meant for a human player to face the bot
@@ -273,14 +287,14 @@ class TripleTriadBot(object):
         p2 = self.generate_random_hand()
         youAreP1 = isP1 = random.randint(0,1)==0
 
-        #if youAreP1:
-            #p2 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["MerlwybBloefhiswyn"]]]
-            #p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+        if youAreP1:
+            p2 = [self.allcards[self.cardnamedict["Shantotto"]], self.allcards[self.cardnamedict["Matoya"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Asahi"]]]
+            p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
 
 
-        #else:
-            #p1 = [self.allcards[self.cardnamedict["Rasho"]], self.allcards[self.cardnamedict["Kuribu"]], self.allcards[self.cardnamedict["Byakko"]], self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["TerraBranford"]]]
-            #p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+        else:
+            p1 = [self.allcards[self.cardnamedict["Shantotto"]], self.allcards[self.cardnamedict["Matoya"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Asahi"]]]
+            p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
 
         random.shuffle(p1)
         random.shuffle(p2)
@@ -598,7 +612,7 @@ class TripleTriadBot(object):
     '''
     Method to test the network.
     '''
-    def test_network(self, handdata, directory = "nn1/", number_of_games = 1000):
+    def test_network(self, handdata, directory = "nn1/", number_of_games = 1000, shouldUpdate = False):
         stringedGamesPlayed = ""
 
         winsAsP1 = 0
@@ -667,7 +681,7 @@ class TripleTriadBot(object):
                     for i in range (5):
                         self.bestCardsInTests[self.allcards.index(p1[i])] += 1
             print(gameboard.toFileString(self.allcards))
-        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.535:
+        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.535 and shouldUpdate:
             self.currentModelID += 1
             del self.testnet[0]
             self.testnet = [None]
@@ -681,23 +695,25 @@ class TripleTriadBot(object):
             print("Could not find better network!")
         print("{} W / {} T / {} L games against the dummy network as Player 1".format(winsAsP1, tiesAsP1, lossesAsP1))
         print("{} W / {} T / {} L games against the dummy network as Player 2".format(winsAsP2, tiesAsP2, lossesAsP2))
-        with open("cardstats{}.txt".format(self.currentModelID), "w") as f:
-            usedIndexes = [False] * len(self.allcards)
-            for i in range(len(self.allcards)):
-                bestIndex = -1
-                bestValue = -1
-                for j in range(len(self.allcards)):
-                    if (usedIndexes[j]):
-                        continue
-                    elif self.totalCardsInTests[j] == 0 and bestValue < 0:
-                        bestValue = 0
-                        bestIndex = j
-                    elif self.totalCardsInTests[j] > 0 and bestValue < self.bestCardsInTests[j] / self.totalCardsInTests[j]:
-                        bestValue = self.bestCardsInTests[j] / self.totalCardsInTests[j]
-                        bestIndex = j
+        if not shouldUpdate:
+            with open("cardstats{}.txt".format(self.currentModelID), "w") as f:
+                usedIndexes = [False] * len(self.allcards)
+                for i in range(len(self.allcards)):
+                    bestIndex = -1
+                    bestValue = -1
+                    for j in range(len(self.allcards)):
+                        if (usedIndexes[j]):
+                            continue
+                        elif self.totalCardsInTests[j] == 0 and bestValue < 0:
+                            bestValue = 0
+                            bestIndex = j
+                        elif self.totalCardsInTests[j] > 0 and bestValue < self.bestCardsInTests[j] / self.totalCardsInTests[j]:
+                            bestValue = self.bestCardsInTests[j] / self.totalCardsInTests[j]
+                            bestIndex = j
 
-                usedIndexes[bestIndex] = True
-                f.write("{}:{}% ({}/{})\n".format(self.allcards[bestIndex].name, 100 * bestValue, self.bestCardsInTests[bestIndex], self.totalCardsInTests[bestIndex]))
+                    usedIndexes[bestIndex] = True
+                    f.write("{}:{}% ({}/{})\n".format(self.allcards[bestIndex].name, 100 * bestValue, self.bestCardsInTests[bestIndex], self.totalCardsInTests[bestIndex]))
+
     '''
     Unused method that converts a network output to its card and position and returns it
     '''
