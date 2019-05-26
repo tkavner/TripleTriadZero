@@ -119,10 +119,10 @@ class TripleTriadBot(object):
         '''
         if (currentModelID == -1):
             self.currentModelID = 0
-            tf.keras.models.save_model(self.net[0], "ttnn/finalnetworktf{}.txt".format(self.currentModelID))
+            tf.keras.models.save_model(self.net[0], "ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
         self.load()
         for i in range(1):
-            self.testnet.append(tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID)))
+            self.testnet.append(tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID)))
         random.seed(datetime.datetime.now()) #quality method of seeding random hand generation
         self.bestCardsInTests = [0] * len(self.allcards)
         self.totalCardsInTests = [0] * len(self.allcards)
@@ -269,7 +269,7 @@ class TripleTriadBot(object):
                 datasetIn, datasetOut = nplist[0]
                 self.net[0].fit(datasetIn, datasetOut, epochs=iterations)
 
-                tf.keras.models.save_model(self.net[0], "ttnn/finalnetworktf{}.txt".format(self.currentModelID + 1))
+                tf.keras.models.save_model(self.net[0], "ttnn/finalnetwork4tf{}.txt".format(self.currentModelID + 1))
                 print("Saved network {} to file!".format(0))
             self.test_network(handdata, number_of_games = numgames, shouldUpdate = True)
 
@@ -686,7 +686,7 @@ class TripleTriadBot(object):
             del self.testnet[0]
             self.testnet = [None]
             for i in range(1):
-                self.testnet[0] = tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID))
+                self.testnet[0] = tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
 
             print("Better network found! New network model is: {}".format(self.currentModelID))
         else:
@@ -780,7 +780,7 @@ class TripleTriadBot(object):
     def load(self):
         self.net = [None]
         for i in range(1):
-            self.net[0] = tf.keras.models.load_model("ttnn/finalnetworktf{}.txt".format(self.currentModelID))
+            self.net[0] = tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
 class Card(object):
     def __init__(self, carddata):
         self.name = carddata[0]
