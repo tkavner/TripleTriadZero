@@ -288,12 +288,14 @@ class TripleTriadBot(object):
         youAreP1 = isP1 = random.randint(0,1)==0
 
         if youAreP1:
-            p2 = [self.allcards[self.cardnamedict["Shantotto"]], self.allcards[self.cardnamedict["Matoya"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Asahi"]]]
+            #p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Moglin"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Lightning"]], self.allcards[self.cardnamedict["Arenvald"]]]
             p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+            p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Arenvald"]], self.allcards[self.cardnamedict["Asahi"]]]
 
 
         else:
-            p1 = [self.allcards[self.cardnamedict["Shantotto"]], self.allcards[self.cardnamedict["Matoya"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Asahi"]]]
+            #p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Moglin"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Lightning"]], self.allcards[self.cardnamedict["Arenvald"]]]
+            p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Arenvald"]], self.allcards[self.cardnamedict["Asahi"]]]
             p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
 
         random.shuffle(p1)
@@ -333,7 +335,7 @@ class TripleTriadBot(object):
                     gameboard.playCard(cardToPlay, posToPlay)
                 else:
                     outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, True, shouldBeRandom = False)
+                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 6, True, shouldBeRandom = False)
                     print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
@@ -341,7 +343,7 @@ class TripleTriadBot(object):
             else:
                 if youAreP1:
                     outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, False, shouldBeRandom = False)
+                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 6, False, shouldBeRandom = False)
                     print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
@@ -434,14 +436,14 @@ class TripleTriadBot(object):
         if(turnsToCheck <= 0 or gameboard.turn >= 9):
             if isP1:
                 #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
-                if gameboard.score > 0: return ([1, 0, 0], None, -1)
+                if gameboard.score > 0: return ([abs(gameboard.score), 0, 0], None, -1)
                 elif gameboard.score == 0: return ([0, 1, 0], None, -1)
-                else: return ([0, 0, 1], None,-1)
+                else: return ([0, 0, abs(gameboard.score)], None,-1)
             else:
                 #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
-                if gameboard.score < 0: return ([1, 0, 0], None,-1)
+                if gameboard.score < 0: return ([abs(gameboard.score), 0, 0], None,-1)
                 elif gameboard.score == 0: return ([0, 1, 0], None,-1)
-                else: return ([0, 0, 1], None,-1)
+                else: return ([0, 0, abs(gameboard.score)], None,-1)
 
 
 
