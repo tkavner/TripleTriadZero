@@ -1,10 +1,10 @@
 Quickstart:
 
->> import ttnnbot3
->> bot = ttnnbot3.TripleTriadBot(10)
+>> import ttnnbot4
+>> bot = ttnnbot4.TripleTriadBot(44)
 >> bot.playAgainstBot()
 
-To play against older versions of the network use:
+To play against older versions of the network use (note that not all versions are included in this repository):
 
 >> bot = ttnnbot3.TripleTriadBot(n)
 >> bot.playAgainstBot()
