@@ -17,7 +17,17 @@ import numpy as np
 import os
 import datetime
 import time
+import math
 
+def get_bot_deck(deckID):
+    normal, legendary, allcards, cardnamedict = make_card_data()
+    with open("ttnn/decks/networkdeckchoices{}.txt".format(deckID)) as f:
+        carddatarawunsplit = f.read()
+    carddataraw = carddatarawunsplit.split("\n")
+    line = carddataraw[random.randint(0, len(carddataraw) - 2)]
+    cardNames = line[line.index(":") + 1:].replace(" ", "").replace(":", "").split("|")
+
+    return [allcards[cardnamedict[cardNames[0]]], allcards[cardnamedict[cardNames[1]]], allcards[cardnamedict[cardNames[2]]], allcards[cardnamedict[cardNames[3]]], allcards[cardnamedict[cardNames[4]]]]
 #helper methods to manage card files
 def make_modified_cardlist(cutoff, statsfile, starterfile = 'cards.txt', outputfile = 'cardslimited.txt'):
     normal, legendary, allcards, cardnamedict = make_card_data(cardfile = starterfile)
@@ -65,7 +75,7 @@ class TripleTriadBot(object):
 
         self.normal, self.legendary, self.allcards, self.cardnamedict = make_card_data(cardfile = cardfile)
         self.net = [] #Array if you want to make an array of networks (currently singleton array)
-
+        self.fivestarnet = []
         self.playerrecord = [0,0,0] #Record of player wins and losses
         '''
         The network architecture is as follows:
@@ -113,6 +123,27 @@ class TripleTriadBot(object):
               metrics=['accuracy'])
             model.summary()
             self.net.append(model)
+
+
+
+            model1 = keras.models.Sequential()
+
+            model1.add(keras.layers.Conv2D(45, (1, 9), activation='relu', input_shape=(5, 29, 1), name = "input"))
+            model1.add(keras.layers.BatchNormalization())
+
+            #model.add(keras.layers.Conv2D(16, (1, 1), activation='relu', input_shape=(5, 20, 1), name = "input"))
+            #model.add(keras.layers.BatchNormalization())
+            model1.add(keras.layers.Dropout(.5))
+            model1.add(keras.layers.Flatten())
+            model1.add(keras.layers.Dense(45, activation='softmax'))
+            model1.add(keras.layers.Dense(4, activation='softmax'))
+            model1.add(keras.layers.Reshape((1, 4)))
+
+            model1.compile(optimizer=tf.keras.optimizers.Adam(0.001),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+            model1.summary()
+            self.fivestarnet.append(model1)
             #self.net[i].large_weight_initializer()
         '''
         An argument of <
@@ -120,6 +151,7 @@ class TripleTriadBot(object):
         if (currentModelID == -1):
             self.currentModelID = 0
             tf.keras.models.save_model(self.net[0], "ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
+            tf.keras.models.save_model(self.fivestarnet[0], "ttnn/finalnetwork4tffivestar{}.txt".format(self.currentModelID))
         self.load()
         for i in range(1):
             self.testnet.append(tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID)))
@@ -192,6 +224,7 @@ class TripleTriadBot(object):
         random.shuffle(lst)
         return lst
 
+
     #reads games from a file
     def formatGame(self, gamedatafile):
 
@@ -207,18 +240,18 @@ class TripleTriadBot(object):
             #print(i)
             if (gamedata[i] == ""):
                 break
-            p1Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i][len("P1 Deck: "):].replace(" ", "").split("|")]
-            p2Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i + 1][len("P2 Deck: "):].replace(" ", "").split("|")]
+            p1Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i][len("P1 Deck: "):].replace(" ", "").replace("(Hidden)", "").split("|")]
+            p2Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i + 1][len("P2 Deck: "):].replace(" ", "").replace("(Hidden)", "").split("|")]
             gameboardData = gamedata[i + 2][len("Cards played: "): -1].replace(" ", "").replace("(Blue)", "").replace("(Red)", "").split("|")
             gameboard = Gameboard(p1Deck, p2Deck)
             for j in range(9):
                 if (i + 3 < len(gamedata)):
-                    if (("P1W" in gameboardData[-1] or "T" in gameboardData[-1])  and j % 2 == 1):
+                    if (("P2L" in gameboardData[-1] or ("P1W" in gameboardData[-1] or "T" in gameboardData[-1]))  and j % 2 == 1):
                         cardName, posstring = gameboardData[j].split(":")
                         pos = int(posstring.split(",")[0]) + 3 * int(posstring.split(",")[1])
                         gameboard.playCard(self.allcards[self.cardnamedict[cardName]], pos)
                         continue
-                    if (("P1L" in gameboardData[-1] or "T" in gameboardData[-1]) and j % 2 == 0):
+                    if ((("P2W" in gameboardData[-1]) or ("P1L" in gameboardData[-1] or "T" in gameboardData[-1])) and j % 2 == 0):
                         cardName, posstring = gameboardData[j].split(":")
                         pos = int(posstring.split(",")[0]) + 3 * int(posstring.split(",")[1])
                         gameboard.playCard(self.allcards[self.cardnamedict[cardName]], pos)
@@ -252,6 +285,118 @@ class TripleTriadBot(object):
         print(npinput.shape)
         return nplist
 
+    def formatGameFiveStar(self, gamedatafile):
+
+        with open(gamedatafile) as f:
+            gamedataunsplit = f.read()
+        gamedata = gamedataunsplit.split("\n")
+
+        nplist = [None] * 9
+        nplistIn = [None] * 9
+        nplistOut = [None] * 9
+        print(nplist)
+        for i in range(0, len(gamedata), 3):
+            #print(i)
+            if (gamedata[i] == ""):
+                break
+            p1Hidden = [False] * 5
+            p2Hidden = [False] * 5
+            cardNamesHiddenP1 = gamedata[i][len("P1 Deck: "):].replace(" ", "").split("|")
+            cardNamesHiddenP2 = gamedata[i + 1][len("P2 Deck: "):].replace(" ", "").split("|")
+            for j in range(5):
+                p1Hidden[j] = cardNamesHiddenP1[j].find("(Hidden)") >= 0
+                p2Hidden[j] = cardNamesHiddenP2[j].find("(Hidden)") >= 0
+            p1Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i][len("P1 Deck: "):].replace(" ", "").replace("(Hidden)", "").split("|")]
+            p2Deck = [self.allcards[self.cardnamedict[value]] for value in gamedata[i + 1][len("P2 Deck: "):].replace(" ", "").replace("(Hidden)", "").split("|")]
+            gameboardData = gamedata[i + 2][len("Cards played: "): -1].replace(" ", "").replace("(Blue)", "").replace("(Red)", "").replace("(Hidden)", "").split("|")
+            gameboard = Gameboard(p1Deck, p2Deck)
+            gameboard.p1Hidden = p1Hidden
+            gameboard.p2Hidden = p2Hidden
+            for j in range(9):
+                if (i + 3 < len(gamedata)):
+                    if (("P2L" in gameboardData[-1] or ("P1W" in gameboardData[-1] or "T" in gameboardData[-1]))  and j % 2 == 1):
+                        cardName, posstring = gameboardData[j].split(":")
+                        pos = int(posstring.split(",")[0]) + 3 * int(posstring.split(",")[1])
+                        gameboard.playCard(self.allcards[self.cardnamedict[cardName]], pos)
+                        continue
+                    if ((("P2W" in gameboardData[-1]) or ("P1L" in gameboardData[-1] or "T" in gameboardData[-1])) and j % 2 == 0):
+                        cardName, posstring = gameboardData[j].split(":")
+                        pos = int(posstring.split(",")[0]) + 3 * int(posstring.split(",")[1])
+                        gameboard.playCard(self.allcards[self.cardnamedict[cardName]], pos)
+                        continue
+                cardName, posstring = gameboardData[j].split(":")
+                pos = int(posstring.split(",")[0]) + 3 * int(posstring.split(",")[1])
+
+                inputForNN = [0] * 145
+                outputForNN = [0] * 4
+
+                inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict)
+                if (j % 2 == 0):
+                    card = None
+                    for i in range(len(gameboard.p1Hand)):
+                        card = gameboard.p1Hand[i]
+                        if (card.stars == 5):
+                            sum = (card.left / 10 + card.up / 10 + card.right / 10 + card.down / 10)
+                            outputForNN[0] = card.left / 10 / sum
+                            outputForNN[1] = card.up / 10 / sum
+                            outputForNN[2] = card.right / 10 / sum
+                            outputForNN[3] = card.down / 10 / sum
+                            break
+                    if outputForNN[0] == 0:
+                        continue
+
+                else:
+                    card = None
+                    for i in range(len(gameboard.p2Hand)):
+                        card = gameboard.p2Hand[i]
+                        if (card.stars == 5):
+                            sum = (card.left / 10 + card.up / 10 + card.right / 10 + card.down / 10)
+                            outputForNN[0] = card.left / 10 / sum
+                            outputForNN[1] = card.up / 10 / sum
+                            outputForNN[2] = card.right / 10 / sum
+                            outputForNN[3] = card.down / 10 / sum
+                            break
+                    if outputForNN[0] == 0:
+                        continue
+
+
+                gameboard.playCard(self.allcards[self.cardnamedict[cardName]], pos)
+
+                if (nplistIn[0] == None):
+                    nplistIn[0] = inputForNN
+                    nplistOut[0] = outputForNN
+                else:
+                    nplistIn[0] += inputForNN
+                    nplistOut[0] += outputForNN
+        for j in range(1):
+            npinput = np.reshape(np.array(nplistIn[j], order='F', ndmin = 4), [(len(nplistIn[j]) // 145), 5, 29, 1])
+            npoutput = np.reshape(np.array(nplistOut[j], order='F', ndmin = 4), [(len(nplistOut[j]) // 4), 1, 4])
+            nplist[0] = (npinput, npoutput)
+        print(npinput.shape)
+        return nplist
+
+    def fiveStarWildToCard(self, wild):
+        closestValue = 100000
+        closestCard = None
+        for i in range(len(self.legendary)):
+            if (abs(wild.left - self.legendary[i].left) + abs(wild.up - self.legendary[i].up) + abs(wild.right - self.legendary[i].right) + abs(wild.down - self.legendary[i].down) < closestValue):
+                closestValue = abs(wild.left - self.legendary[i].left) + abs(wild.up - self.legendary[i].up) + abs(wild.right - self.legendary[i].right) + abs(wild.down - self.legendary[i].down)
+                closestCard = self.legendary[i]
+        return closestCard
+
+    def trainFiveStar(self, iterations = 5, gameNumber = 0):
+        nplist = self.formatGameFiveStar("ttnn/thousandgames{}.txt".format(gameNumber))
+        datasetIn, datasetOut = nplist[0]
+        self.fivestarnet[0].fit(datasetIn, datasetOut, epochs=iterations)
+        datasetOut = np.reshape(datasetOut, -1).tolist()
+        output = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(datasetIn, order='F', ndmin = 4), (-1, 5, 29, 1))), -1).tolist()
+        for i in range(0, np.size(output) // 4 - 1, 1):
+            card = self.fiveStarWildToCard(Card(["", 5, output[i * 4 + 0] * 29, output[i * 4 + 1] * 29, output[i * 4 + 2] * 29, output[i * 4 + 3] * 29]))
+            supposedCard = self.fiveStarWildToCard(Card(["", 5, datasetOut[i * 4 + 0] * 29, datasetOut[i * 4 + 1] * 29, datasetOut[i * 4 + 2] * 29, datasetOut[i * 4 + 3] * 29]))
+            print("Card predicted is: {}. Card was probably: {}".format(card.name, supposedCard.name))
+        #print(datasetOut)
+        #Ftf.keras.models.save_model(self.fivestarnet[0], "ttnn/finalnetwork4tffivestar{}.txt".format(self.currentModelID))
+        tf.keras.models.save_model(self.fivestarnet[0], "ttnn/finalnetwork4tffivestar{}.txt".format(self.currentModelID + 1))
     '''
     Call this to train the network
     Optional parameters are depretacted
@@ -268,16 +413,17 @@ class TripleTriadBot(object):
                 print("Processing network {}".format(j))
                 datasetIn, datasetOut = nplist[0]
                 self.net[0].fit(datasetIn, datasetOut, epochs=iterations)
-
+                self.trainFiveStar(iterations = iterations, gameNumber = i)
                 tf.keras.models.save_model(self.net[0], "ttnn/finalnetwork4tf{}.txt".format(self.currentModelID + 1))
                 print("Saved network {} to file!".format(0))
             self.test_network(handdata, number_of_games = numgames, shouldUpdate = True)
+
 
     '''
     Modified version of play_games(...), meant for a human player to face the bot
     Callable from a shell, directory is deprecated, plays a single game, records score
     '''
-    def playAgainstBot(self, directory = "nn10/"):
+    def playAgainstBot(self, directory = "nn10/", playerHand = ["Ysayle", "Cloud", "Hilda", "Estinien", "Asahi"]):
 
         stringedGamesPlayed = ""
         #testnet = []
@@ -289,15 +435,19 @@ class TripleTriadBot(object):
 
         if youAreP1:
             #p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Moglin"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Lightning"]], self.allcards[self.cardnamedict["Arenvald"]]]
-            p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
-            p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Arenvald"]], self.allcards[self.cardnamedict["Asahi"]]]
+            #p2 = [self.allcards[self.cardnamedict["CecilHarvey"]], self.allcards[self.cardnamedict["Asahi"]], self.allcards[self.cardnamedict["Louhi"]], self.allcards[self.cardnamedict["Vedrfolnir"]], self.allcards[self.cardnamedict["Coeurlregina"]]]
+            p2 = get_bot_deck(self.currentModelID)
+            p1 = [self.allcards[self.cardnamedict[playerHand[0]]], self.allcards[self.cardnamedict[playerHand[1]]], self.allcards[self.cardnamedict[playerHand[2]]], self.allcards[self.cardnamedict[playerHand[3]]], self.allcards[self.cardnamedict[playerHand[4]]]]
 
 
         else:
             #p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Moglin"]], self.allcards[self.cardnamedict["TheGriffin"]], self.allcards[self.cardnamedict["Lightning"]], self.allcards[self.cardnamedict["Arenvald"]]]
-            p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Arenvald"]], self.allcards[self.cardnamedict["Asahi"]]]
-            p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+            #p1 = [self.allcards[self.cardnamedict["CecilHarvey"]], self.allcards[self.cardnamedict["Asahi"]], self.allcards[self.cardnamedict["Louhi"]], self.allcards[self.cardnamedict["Vedrfolnir"]], self.allcards[self.cardnamedict["Coeurlregina"]]]
+            p1 = get_bot_deck(self.currentModelID)
+            p2 = [self.allcards[self.cardnamedict[playerHand[0]]], self.allcards[self.cardnamedict[playerHand[1]]], self.allcards[self.cardnamedict[playerHand[2]]], self.allcards[self.cardnamedict[playerHand[3]]], self.allcards[self.cardnamedict[playerHand[4]]]]
 
+        #p1 = get_bot_deck(self.currentModelID)
+        #p2 = get_bot_deck(self.currentModelID)
         random.shuffle(p1)
         random.shuffle(p2)
         gameboard = Gameboard(p1, p2)
@@ -334,19 +484,21 @@ class TripleTriadBot(object):
                     p1.remove(cardToPlay)
                     gameboard.playCard(cardToPlay, posToPlay)
                 else:
+                    print("Thinking...")
                     outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 6, True, shouldBeRandom = False)
-                    print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
-                    print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
-                    print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, timeToEstimate = 5000)
+                    #print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    #print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    #print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     gameboard.playCard(cardToPlay, posToPlay)
             else:
                 if youAreP1:
+                    print("Thinking...")
                     outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 6, False, shouldBeRandom = False)
-                    print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
-                    print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
-                    print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, timeToEstimate = 5000)
+                    #print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    #print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
+                    #print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     gameboard.playCard(cardToPlay, posToPlay)
                 else:
                     shittyInput = True
@@ -399,8 +551,356 @@ class TripleTriadBot(object):
                 self.playerrecord[2] += 1
         print("Your record is: {}W/{}T/{}L.".format(self.playerrecord[0], self.playerrecord[1], self.playerrecord[2]))
 
+    def MCTS2Top(self, gameboard, isP1, timeToEstimate = 500, training = False, initialNodes = 6):
+
+        startTime = int(round(time.time() * 1000))
+        inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+        fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
+        fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29]))
+
+        inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = fiveStarPrediction)
+        outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+        topNodes = []
+        b = np.reshape(outputFromNN, (45)).tolist()
+         #when training, slightly randomize the outputs
+        if training:
+             for j in range(45): b[j] += (random.random() * 0.1 - 0.05)
+
+        indexesInOrder = {}
+        sumScores = [0, 0, 0] #list of summed scores to send to the parent MCTS call
+        validIndexes = []
+        i1 = 0
+        #we now sort the list of indexes, but create another list that tells us their original indexing
+        usedIndexes = [False] * 45
+        for i in range(45):
+            bestIndex = 7000
+            bestIndexValue = -100000
+            for j in range(45):
+                if (b[j] >= bestIndexValue and not usedIndexes[j]):
+                    bestIndex = j
+                    bestIndexValue = b[j]
+            usedIndexes[bestIndex] = True
+            indexesInOrder[i] = bestIndex
+
+
+        while (len(validIndexes) < initialNodes and i1 < 45):
+
+            topChoiceIndex = indexesInOrder[i1]
+            card = None
+
+            if (gameboard.turn % 2 == 0):
+                card = gameboard.initialP1Hand[topChoiceIndex % 5]
+            else:
+                card = gameboard.initialP2Hand[topChoiceIndex % 5]
+
+
+            pos = topChoiceIndex // 5
+
+            if (not gameboard.isValidMove(card, pos)):
+                i1+=1
+                continue
+
+
+            validIndexes.append(topChoiceIndex)
+            i1+=1
+
+                #create the gameboards describing the state of the game on the next potential turns
+        gbCopies = []
+
+        for i in range(len(validIndexes)):
+            redhand = [None]
+            card = None
+
+            if (gameboard.turn % 2 == 0):
+                card = gameboard.initialP1Hand[validIndexes[i] % 5]
+            else:
+                card = gameboard.initialP2Hand[validIndexes[i] % 5]
+            pos = validIndexes[i] // 5
+            gbCopy = gameboard.clone()
+            if (isP1):
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    #print(len(redhand))
+                    #print(len(redhand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    card = redhand[validIndexes[i] % 5]
+            else:
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    #print(len(bluehand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    card = redhand[validIndexes[i] % 5]
+
+            gbCopy.playCard(card, pos)
+
+            gbCopies.append(gbCopy)
+
+        for i in range(len(validIndexes)):
+            data, card, pos, history = self.MCTS2(gbCopies[i], 9, isP1, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = None)
+            if (len(history) != 0):
+                topNodes.append(TreeNode(data, history, isP1))
+            else:
+                for i in range(9):
+                    if gbCopies[0].gameboard[i].turnPlayed == 8:
+                        return (gbCopies[0].gameboard[i].card, gbCopies[0].gameboard[i].pos)
+
+        if (len(topNodes) == 0):
+            for i in range(9):
+                if gbCopies[0].gameboard[i].turnPlayed == 8:
+                    return (gbCopies[0].gameboard[i].card, gbCopies[0].gameboard[i].pos)
+            for i in range(9):
+                if gbCopies[0].gameboard[i].turnPlayed == 7:
+                    return (gbCopies[0].gameboard[i].card, gbCopies[0].gameboard[i].pos)
+        while int(round(time.time() * 1000)) - startTime < timeToEstimate:
+            gbCopy = gameboard.clone()
+            '''
+            Evaluate Top Node Values
+            '''
+            bestNode = -100000
+            bestNodeValue = -100000
+            totalNodes = 0
+            for i in range(len(topNodes)):
+                totalNodes += topNodes[i].total
+
+            for i in range(len(topNodes)):
+                nodeValue = topNodes[i].wins / topNodes[i].total + (math.log(totalNodes) / topNodes[i].total * 2 ) ** 0.5
+                if nodeValue > bestNodeValue:
+                    if not topNodes[i].isDead():
+                        bestNode = i
+                        bestNodeValue = nodeValue
+            if (bestNode < 0): #this means we've exhausted our search
+                break
+            data, card, pos, history = self.MCTS2(gameboard, 9, isP1, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = topNodes[bestNode])
+            topNodes[bestNode].addChild(data, history, isP1)
+        bestNode = -100000
+        bestNodeValue = -100000
+        for i in range(len(topNodes)):
+            nodeValue = topNodes[i].total
+            if nodeValue > bestNodeValue:
+                bestNode = i
+                bestNodeValue = nodeValue
+        return self.outputValueToCardAndPos(gameboard, topNodes[bestNode].choice)
+
+    def MCTS2(self, gameboard, turnsToCheck, isP1, training = False, shouldBeRandom = False, topLayer = True, layerOutput = None, fiveStarPrediction = None, desiredValidIndexes = 1, playToTie = False, tree = None):
+        startTime = int(round(time.time() * 1000))
+
+        #special conditions? Ie do we need to continue searching
+        if(turnsToCheck <= 0 or gameboard.turn >= 9):
+            if isP1:
+                #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
+                if gameboard.score > 0: return ([1, 0, 0], None, -1, [])
+                elif gameboard.score == 0: return ([0, 1, 0], None, -1, [])
+                else: return ([0, 0, 1], None,-1, [])
+            else:
+                #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
+                if gameboard.score < 0: return ([1, 0, 0], None,-1, [])
+                elif gameboard.score == 0: return ([0, 1, 0], None,-1, [])
+                else: return ([0, 0, 1], None,-1, [])
+
+
+
+        #outputFromNN is the current boardstate fed to the neural network
+        outputFromNN = None
+        if layerOutput is not None:
+            outputFromNN = layerOutput
+        else:
+            inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+            fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
+            inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])))
+            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+            #print("5 star is believed to be: {}".format(self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])).name))
+
+
+
+        scores = [[0, 0, 0]] * desiredValidIndexes #list of subscores
+
+
+        #reshaped list of the output from the NN
+        b = np.reshape(outputFromNN, (45)).tolist()
+         #when training, slightly randomize the outputs
+        if training:
+             for i in range(45): b[i] += (random.random() * 0.1 - 0.05)
+
+        indexesInOrder = {}
+        sumScores = [0, 0, 0] #list of summed scores to send to the parent MCTS call
+
+        #we now sort the list of indexes, but create another list that tells us their original indexing
+        usedIndexes = [False] * 45
+        for i in range(45):
+            bestIndex = 7000
+            bestIndexValue = -100000
+            for j in range(45):
+                if (b[j] >= bestIndexValue and not usedIndexes[j]):
+                    bestIndex = j
+                    bestIndexValue = b[j]
+            usedIndexes[bestIndex] = True
+            indexesInOrder[i] = bestIndex
+
+        childCardChoies = []
+
+        i1 = 0 #index for outputs for our while loop
+        validIndexes = [] #the list of choices by the bot that can actually be played
+
+        #now we go through all 45 possible outputs, check which are possible to be played, and add up to the best 6 with priority to who is checked given by the NN output
+        while (len(validIndexes) < desiredValidIndexes and i1 < 45):
+
+            topChoiceIndex = indexesInOrder[i1]
+            card = None
+
+            if (gameboard.turn % 2 == 0):
+                card = gameboard.initialP1Hand[topChoiceIndex % 5]
+            else:
+                card = gameboard.initialP2Hand[topChoiceIndex % 5]
+
+
+            pos = topChoiceIndex // 5
+
+            if (not gameboard.isValidMove(card, pos)):
+                i1+=1
+                continue
+
+            if tree is not None:
+                if (tree.isDead()):
+                    i1+=1
+                    continue
+
+
+            validIndexes.append(topChoiceIndex)
+            i1+=1
+
+        #create the gameboards describing the state of the game on the next potential turns
+        gbCopies = []
+
+        for i in range(len(validIndexes)):
+            redhand = [None]
+            card = None
+
+            if (gameboard.turn % 2 == 0):
+                card = gameboard.initialP1Hand[validIndexes[i] % 5]
+            else:
+                card = gameboard.initialP2Hand[validIndexes[i] % 5]
+            pos = validIndexes[i] // 5
+            gbCopy = gameboard.clone()
+            if (isP1):
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    #print(len(redhand))
+                    #print(len(redhand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    card = redhand[validIndexes[i] % 5]
+            else:
+                if gameboard.turn % 2 == 0:
+                    redhand = [value for value in gameboard.initialP1Hand]
+                    #print(len(bluehand))
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    card = redhand[validIndexes[i] % 5]
+                else:
+                    redhand = [value for value in gameboard.initialP2Hand]
+                    card = redhand[validIndexes[i] % 5]
+
+            gbCopy.playCard(card, pos)
+
+            gbCopies.append(gbCopy)
+        history = [validIndexes[0]]
+        if turnsToCheck > 1:
+            #list of all inputs for the neural network
+            inputsForNN = []
+            #we now create the new inputs for the next depth of the MCTS we do it this way because it saves computation time in Tensorflow
+            fiveStarOutputsFromNN = []
+            inputsFor5SNN = []
+            for i in range(len(validIndexes)):
+                inputsFor5SNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+            fiveStarOutputsFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputsFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes) * 4)).tolist()
+            for i in range(len(validIndexes)):
+                #inputsFor5SNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+                inputsForNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]])))
+
+            #feed data to our network, we reshape to make sure its the right format for both the input and the output
+            outputsFromNN = np.reshape(self.net[0].predict(np.reshape(np.array(inputsForNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes), 45))
+
+            #now we ship off the values to next layer of the MCTS
+            for i in range(len(validIndexes)):
+                mctsdata, card, pos, childHistory = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]])), desiredValidIndexes = desiredValidIndexes, tree = tree)
+                history += childHistory
+                scores[i] = mctsdata
+        else:
+            #then next turn will not be using its output data from the neural network, so we simply have it skip calculating the final turn
+            for i in range(len(validIndexes)):
+                mctsdata, card, pos, childHistory  = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, tree = tree)
+                history += childHistory
+                scores[i] = mctsdata
+
+        #score summation / choice evaluation
+        bestScore = -10000000
+        bestIndex = -1
+        scoreIndex = -70
+        for i in range(len(validIndexes)):
+            indexScore = 0
+            if isP1:
+                if gameboard.turn % 2 == 0:
+                    indexScore = scores[i][0] - scores[i][2] - 0.99 * scores[i][1]
+                else:
+                    indexScore = -(scores[i][0] - scores[i][2] - 0.99 * scores[i][1])
+            else:
+                if gameboard.turn % 2 == 1:
+                    indexScore = scores[i][0] - scores[i][2] - 0.99 * scores[i][1]
+                else:
+                    indexScore = -(scores[i][0] - scores[i][2] - 0.99 * scores[i][1])
+            if playToTie: indexScore = scores[i][0] - scores[i][2] + 1 * scores[i][1]
+            if (bestScore < indexScore):
+                bestIndex = validIndexes[i]
+                bestScore = indexScore
+                scoreIndex = i
+
+
+        for i in range(len(validIndexes)):
+            sumScores[0] += scores[i][0]
+            sumScores[1] += scores[i][1]
+            sumScores[2] += scores[i][2]
+
+        card = None
+
+        if (gameboard.turn % 2 == 0):
+            card = gameboard.initialP1Hand[bestIndex % 5]
+        else:
+            card = gameboard.initialP2Hand[bestIndex % 5]
+
+        pos = bestIndex // 5
+
+        if (bestIndex == -1): #if for some reason we found no moves, just find a valid move! This should never happen, but if it does this will always generate a valid move.
+            print("Failed to find a valid move! This is a bug!")
+            for i in range(45):
+                if (gameboard.turn % 2 == 0):
+                    card = gameboard.initialP1Hand[i % 5]
+                else:
+                    card = gameboard.initialP2Hand[i % 5]
+
+
+                pos = i // 5
+
+                if (gameboard.isValidMove(card, pos)):
+                    bestIndex = i
+                    scoreIndex = 0
+                    break
+
+
+
+        #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
+
+        #if we're on the top layer, report scores with=
+        return (sumScores, card, pos, history)
+
     '''
-    MCTS: Monte Carlo Tree searchlevel
+    MCTS: Monte Carlo Tree Search
 
     Implementation is taken from Alpha Go Zero. Ie we have a search depth and do not play games to completion
 
@@ -411,37 +911,22 @@ class TripleTriadBot(object):
     (1) Initial Call to  MCTS --> (2) get an initial output neural network to work with --> (3) sort options -->
     (4) validate options --> (5) generate next layer --> (6) call next layer of MCTS --> goto (3) until you reach bottom --> add scores to find best move
     '''
-    def MCTS(self, gameboard, turnsToCheck, isP1, training = False, shouldBeRandom = False, topLayer = True, layerOutput = None):
+
+
+
+    def MCTS(self, gameboard, turnsToCheck, isP1, training = False, shouldBeRandom = False, topLayer = True, layerOutput = None, fiveStarPrediction = None, desiredValidIndexes = 6, playToTie = False):
         startTime = int(round(time.time() * 1000))
-        ##random?
-        if shouldBeRandom:
-
-            for k in range(45):
-
-                topChoiceIndex = k
-                card = None
-
-                if (gameboard.turn % 2 == 0):
-                    card = gameboard.initialP1Hand[topChoiceIndex % 5]
-                else:
-                    card = gameboard.initialP2Hand[topChoiceIndex % 5]
-
-
-                pos = topChoiceIndex // 5
-
-                if (gameboard.isValidMove(card, pos)):
-                    return ([], card, pos)
 
         #special conditions? Ie do we need to continue searching
         if(turnsToCheck <= 0 or gameboard.turn >= 9):
             if isP1:
                 #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
-                if gameboard.score > 0: return ([abs(gameboard.score), 0, 0], None, -1)
+                if gameboard.score > 0: return ([1, 0, 0], None, -1)
                 elif gameboard.score == 0: return ([0, 1, 0], None, -1)
                 else: return ([0, 0, abs(gameboard.score)], None,-1)
             else:
                 #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
-                if gameboard.score < 0: return ([abs(gameboard.score), 0, 0], None,-1)
+                if gameboard.score < 0: return ([1, 0, 0], None,-1)
                 elif gameboard.score == 0: return ([0, 1, 0], None,-1)
                 else: return ([0, 0, abs(gameboard.score)], None,-1)
 
@@ -452,17 +937,23 @@ class TripleTriadBot(object):
         if layerOutput is not None:
             outputFromNN = layerOutput
         else:
-            inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+            inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+            fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
+            inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])))
             outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+            #print("5 star is believed to be: {}".format(self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])).name))
 
-        desiredValidIndexes = 6 #maximum number of choices to check
+
+
         scores = [[0, 0, 0]] * desiredValidIndexes #list of subscores
 
 
         #reshaped list of the output from the NN
         b = np.reshape(outputFromNN, (45)).tolist()
-        if (training): #when training, slightly randomize the outputs
-            for i in range(45): b[i] += (random.random() * 0.1 - 0.05)
+         #when training, slightly randomize the outputs
+        if training:
+             for i in range(45): b[i] += (random.random() * 0.1 - 0.05)
+
         indexesInOrder = {}
         sumScores = [0, 0, 0] #list of summed scores to send to the parent MCTS call
 
@@ -526,13 +1017,13 @@ class TripleTriadBot(object):
                     redhand = [value for value in gameboard.initialP2Hand]
                     #print(len(redhand))
                     #print(len(redhand))
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
             else:
                 if gameboard.turn % 2 == 0:
                     redhand = [value for value in gameboard.initialP1Hand]
                     #print(len(bluehand))
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict)
+                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
                 else:
                     redhand = [value for value in gameboard.initialP2Hand]
@@ -545,15 +1036,21 @@ class TripleTriadBot(object):
             #list of all inputs for the neural network
             inputsForNN = []
             #we now create the new inputs for the next depth of the MCTS we do it this way because it saves computation time in Tensorflow
+            fiveStarOutputsFromNN = []
+            inputsFor5SNN = []
             for i in range(len(validIndexes)):
-                inputsForNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+                inputsFor5SNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+            fiveStarOutputsFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputsFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes) * 4)).tolist()
+            for i in range(len(validIndexes)):
+                #inputsFor5SNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
+                inputsForNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]])))
 
             #feed data to our network, we reshape to make sure its the right format for both the input and the output
             outputsFromNN = np.reshape(self.net[0].predict(np.reshape(np.array(inputsForNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes), 45))
 
             #now we ship off the values to next layer of the MCTS
             for i in range(len(validIndexes)):
-                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i])
+                mctsdata, card, pos = self.MCTS(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]])), desiredValidIndexes = desiredValidIndexes)
                 scores[i] = mctsdata
         else:
             #then next turn will not be using its output data from the neural network, so we simply have it skip calculating the final turn
@@ -566,7 +1063,18 @@ class TripleTriadBot(object):
         bestIndex = -1
         scoreIndex = -70
         for i in range(len(validIndexes)):
-            indexScore = scores[i][0] - scores[i][2] - 0.01 * scores[i][1]
+            indexScore = 0
+            if isP1:
+                if gameboard.turn % 2 == 0:
+                    indexScore = scores[i][0] - scores[i][2] - 0.99 * scores[i][1]
+                else:
+                    indexScore = -(scores[i][0] - scores[i][2] - 0.99 * scores[i][1])
+            else:
+                if gameboard.turn % 2 == 1:
+                    indexScore = scores[i][0] - scores[i][2] - 0.99 * scores[i][1]
+                else:
+                    indexScore = -(scores[i][0] - scores[i][2] - 0.99 * scores[i][1])
+            if playToTie: indexScore = scores[i][0] - scores[i][2] + 1 * scores[i][1]
             if (bestScore < indexScore):
                 bestIndex = validIndexes[i]
                 bestScore = indexScore
@@ -612,7 +1120,7 @@ class TripleTriadBot(object):
         return (sumScores, card, pos)
 
     '''
-    Method to test the network.
+    Method to test the network. Tests differently depending if shouldUpdate is True. Probably should be split into two methods.
     '''
     def test_network(self, handdata, directory = "nn1/", number_of_games = 1000, shouldUpdate = False):
         stringedGamesPlayed = ""
@@ -623,82 +1131,119 @@ class TripleTriadBot(object):
         tiesAsP2 = 0
         lossesAsP1 = 0
         lossesAsP2 = 0
-
+        outputString = ""
+        numdeckstoTest = 10
+        if shouldUpdate: numdeckstoTest = 1
         for i in range(number_of_games):
-            #p1, p2, score = handdata[i]
-            #isP1 = score > 0
-            #if (score == 0): continue
+            if not shouldUpdate: print("Starting deck {} processing...".format(i))
+            isP1 = random.randint(0,1)==0
             p1 = self.generate_random_hand()
             p2 = self.generate_random_hand()
-            isP1 = random.randint(0,1)==0
-
-            gameboard = Gameboard(p1.copy(), p2.copy())
-            for j in range(9):
-                inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict)
-                outputFromNN = None
-                cardToPlay, posToPlay = (None, 0)
-                if j % 2 == 0:
+            wins = 0
+            for i1 in range(numdeckstoTest):
+                if not shouldUpdate:
                     if isP1:
-                        outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, True, shouldBeRandom = False)
+                        p2 = p1
                     else:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, True, shouldBeRandom = False)
+                        p1 = p2
+                    isP1 = not isP1
 
-                else:
-                    if isP1:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, False, shouldBeRandom = False)
+                if isP1:
+                    if not shouldUpdate:
+                        #p1 = get_bot_deck(self.currentModelID)
+                        p2 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+                elif not shouldUpdate:
+                    #p2 = get_bot_deck(self.currentModelID)
+                        p1 = [self.allcards[self.cardnamedict["Ysayle"]], self.allcards[self.cardnamedict["Cloud"]], self.allcards[self.cardnamedict["Hilda"]], self.allcards[self.cardnamedict["Estinien"]], self.allcards[self.cardnamedict["Asahi"]]]
+                random.shuffle(p1)
+                random.shuffle(p2)
+                gameboard = Gameboard(p1.copy(), p2.copy())
+                for j in range(9):
+                    inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict)
+                    outputFromNN = None
+                    cardToPlay, posToPlay = (None, 0)
+                    if j % 2 == 0:
+                        if isP1:
+                            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
+                        else:
+                            outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
 
                     else:
-                        outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, False, shouldBeRandom = False)
+                        if isP1:
+                            outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
 
-                #print(outputFromNN.shape)
-                gameboard.playCard(cardToPlay, posToPlay)
-            for i in range (5):
-                self.totalCardsInTests[self.allcards.index(p1[i])] += 1
-                self.totalCardsInTests[self.allcards.index(p2[i])] += 1
-            if isP1:
-                if gameboard.score > 0:
-                    winsAsP1 +=1
-                    for i in range (5):
-                        self.bestCardsInTests[self.allcards.index(p1[i])] += 1
+                        else:
+                            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
 
-                elif gameboard.score == 0:
-                    tiesAsP1 +=1
+                    #print(outputFromNN.shape)
+                    gameboard.playCard(cardToPlay, posToPlay)
+
+
+                if isP1:
+
+
+                    if gameboard.score > 0:
+                        wins += 1
+                        if (wins > 3):
+                            break
+                        winsAsP1 +=1
+
+                    elif gameboard.score == 0:
+                        tiesAsP1 +=1
+                    else:
+                        lossesAsP1 += 1
                 else:
-                    lossesAsP1 += 1
-                    for i in range (5):
-                        self.bestCardsInTests[self.allcards.index(p2[i])] += 1
-            else:
-                if (gameboard.score < 0):
-                    winsAsP2 +=1
-                    for i in range (5):
-                        self.bestCardsInTests[self.allcards.index(p2[i])] += 1
-                elif gameboard.score == 0:
-                    tiesAsP2 +=1
+                    if (gameboard.score < 0):
+                        wins += 1
+                        if (wins > 3):
+                            break
+                        winsAsP2 +=1
+                    elif gameboard.score == 0:
+                        tiesAsP2 +=1
+                    else:
+                        lossesAsP2 += 1
+                if shouldUpdate:
+                    print(gameboard.toFileString(self.allcards, isP1 = isP1))
+            if (wins > 3):
+                fileString = ""
+                if isP1:
+                    fileString += "P1 Deck: "
+                    for i in range(len(gameboard.initialP1Hand)):
+                        fileString += gameboard.initialP1Hand[i].name
+                        if (i != 4):
+                            fileString += " | "
                 else:
-                    lossesAsP2 += 1
-                    for i in range (5):
-                        self.bestCardsInTests[self.allcards.index(p1[i])] += 1
-            print(gameboard.toFileString(self.allcards))
-        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.535 and shouldUpdate:
+                    fileString = "P1 Deck: "
+                    for i in range(len(gameboard.initialP2Hand)):
+                        fileString += gameboard.initialP2Hand[i].name
+                        if (i != 4):
+                            fileString += " | "
+                outputString += fileString + "\n"
+                print(fileString)
+
+
+
+        if (winsAsP2 + winsAsP1) / (winsAsP2 + winsAsP1 + lossesAsP1 + lossesAsP2) > 0.54 and shouldUpdate:
             self.currentModelID += 1
             del self.testnet[0]
             self.testnet = [None]
             for i in range(1):
                 self.testnet[0] = tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
-
             print("Better network found! New network model is: {}".format(self.currentModelID))
+            print("Generating a few realistic decks for Network model {}.".format(self.currentModelID))
+            self.test_network(None, None, number_of_games = 400)
         else:
-
-
             print("Could not find better network!")
         print("{} W / {} T / {} L games against the dummy network as Player 1".format(winsAsP1, tiesAsP1, lossesAsP1))
         print("{} W / {} T / {} L games against the dummy network as Player 2".format(winsAsP2, tiesAsP2, lossesAsP2))
         if not shouldUpdate:
-            with open("cardstats{}.txt".format(self.currentModelID), "w") as f:
+            with open("ttnn/decks/networkdeckchoices{}.txt".format(self.currentModelID), "w") as f:
+                f.write(outputString)
+            '''with open("cardstats{}.txt".format(self.currentModelID), "w") as f:
                 usedIndexes = [False] * len(self.allcards)
                 for i in range(len(self.allcards)):
                     bestIndex = -1
@@ -715,7 +1260,7 @@ class TripleTriadBot(object):
 
                     usedIndexes[bestIndex] = True
                     f.write("{}:{}% ({}/{})\n".format(self.allcards[bestIndex].name, 100 * bestValue, self.bestCardsInTests[bestIndex], self.totalCardsInTests[bestIndex]))
-
+                    '''
     '''
     Unused method that converts a network output to its card and position and returns it
     '''
@@ -749,29 +1294,29 @@ class TripleTriadBot(object):
             for j in range(9):
                 startTurnTime = int(round(time.time() * 1000))
                 inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = j % 2 == 0, hideCards = True)
-                outputFromNN = None
+                #outputFromNN = None
 
                 #print(outputFromNN.shape)
                 cardToPlay, posToPlay = (None, 0)
                 if j % 2 == 0:
                     if isP1:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, True, training = True, shouldBeRandom = False)
+                        #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
                     else:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, True, training = True, shouldBeRandom = False)
+                        #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
                 else:
                     if isP1:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, False, training = True, shouldBeRandom = False)
+                        #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
                     else:
-                        outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        mctsResults, cardToPlay, posToPlay = self.MCTS(gameboard.clone(), 4, False, training = True, shouldBeRandom = False)
+                        #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
                 gameboard.playCard(cardToPlay, posToPlay)
                 #print ("Time to complete a turn: {} ms".format(i, int(round(time.time() * 1000)) - startTurnTime))
             gamedata.append((p1, p2, gameboard.score))
             #print ("Time to complete a game: {} ms".format(i, int(round(time.time() * 1000)) - startTime))
-            stringedGamesPlayed += gameboard.toFileString(self.allcards) + "\n"
+            stringedGamesPlayed += gameboard.toFileString(self.allcards, isP1 = isP1) + "\n"
             if i % (number_of_games // 100) == 0:
                 print("Played {}% of games".format(i / number_of_games * 100))
         with open(outputfile, "w") as f:
@@ -783,6 +1328,7 @@ class TripleTriadBot(object):
         self.net = [None]
         for i in range(1):
             self.net[0] = tf.keras.models.load_model("ttnn/finalnetwork4tf{}.txt".format(self.currentModelID))
+            #self.fivestarnet[0] = tf.keras.models.load_model("ttnn/finalnetwork4tffivestar{}.txt".format(self.currentModelID))
 class Card(object):
     def __init__(self, carddata):
         self.name = carddata[0]
@@ -867,7 +1413,7 @@ class Gameboard(object):
         return hand
 
 
-    def flipHiddenCards(self, hand, isP1, allcards, normalcards, legendarycards, cardnamedict):
+    def flipHiddenCards(self, hand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = Card(["Five Star Wild", 5, 10, 10, 10, 10])):
         contains5StarHidden = False
         #find out if there is a 5 star in their hand, this is easy to compute (check hand, check board) and always computable so we just cheat to save time
         for i in range(len(hand)):
@@ -916,15 +1462,15 @@ class Gameboard(object):
         #replace a random hidden card with 5 star wild
         if (contains5StarHidden):
             if len(hiddenIndexes) > 1:
-                hand[hiddenIndexes[random.randint(0, len(hiddenIndexes) - 1)]] = Card(["Five Star Wild", 5, 10, 10, 10, 10])
+                hand[hiddenIndexes[random.randint(0, len(hiddenIndexes) - 1)]] = fiveStarPrediction
             else:
-                hand[hiddenIndexes[0]] = Card(["Five Star Wild", 5, 10, 10, 10, 10])
+                hand[hiddenIndexes[0]] = fiveStarPrediction
         return hand
 
     '''
     Yes this is actually necessary. Will thing of a better name / implementation later.
     '''
-    def flipHiddenCards2(self, hand, isP1, allcards, normalcards, legendarycards, cardnamedict):
+    def flipHiddenCards2(self, hand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = Card(["Five Star Wild", 5, 10, 10, 10, 10])):
         contains5StarHidden = False
         #find out if there is a 5 star in their hand, this is easy to compute (check hand, check board) and always computable so we just cheat to save time
         for i in range(len(hand)):
@@ -970,22 +1516,28 @@ class Gameboard(object):
                     if self.p2Hidden[self.initialP2Hand.index(hand[i])]:
                         hand[i] = Card(["Three Star Wild", 3, 8, 8, 8, 8])
                         hiddenIndexes.append(i)
+        if (contains5StarHidden):
+            if len(hiddenIndexes) > 1:
+                hand[hiddenIndexes[random.randint(0, len(hiddenIndexes) - 1)]] = fiveStarPrediction
+            else:
+                hand[hiddenIndexes[0]] = fiveStarPrediction
+        return hand
 
-    def getGameboardInputArray(self, allcards, normalcards, legendarycards, cardnamedict, isP1 = False, hideCards = True):
+    def getGameboardInputArray(self, allcards, normalcards, legendarycards, cardnamedict, isP1 = False, hideCards = True, fiveStarPrediction = Card(["Five Star Wild", 5, 10, 10, 10, 10])):
         redhand = self.p1Hand.copy() #TODO: dont actually call them this! fix at some point
         bluehand = self.p2Hand.copy()
 
         if hideCards:
             if (self.turn % 2 == 0):
                 if isP1:
-                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = fiveStarPrediction)
                 else:
-                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = fiveStarPrediction)
             else:
                 if isP1:
-                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    redhand = self.flipHiddenCards2(redhand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = fiveStarPrediction)
                 else:
-                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict)
+                    bluehand = self.flipHiddenCards2(bluehand, isP1, allcards, normalcards, legendarycards, cardnamedict, fiveStarPrediction = fiveStarPrediction)
                 #print(len(redhand))
 
 
@@ -1191,15 +1743,17 @@ You can see your opponent has: (1) Byakko(u: 1, r:7, d:7, l:7), (2) Hien(u: 10, 
     P2 Deck: AlexanderPrime | CountEdmontdeFortemps | Alpha | Omega | TozolHuatotl
     Cards played: Gosetsu: 0, 2 | TozolHuatotl: 1, 2 | Arenvald: 2, 2 | CountEdmontdeFortemps: 2, 1 | Coeurlregina: 1, 1 | Omega: 0, 1 | Lupin: 0, 0 | Alpha: 1, 0 | Papalymo&Yda: 2, 0 | P1 Loss
     '''
-    def toFileString(self, allCards):
+    def toFileString(self, allCards, isP1 = True):
         fileString = "P1 Deck: "
         for i in range(len(self.initialP1Hand)):
             fileString += self.initialP1Hand[i].name
+            if (self.p1Hidden[i]): fileString += "(Hidden)"
             if (i != 4):
                 fileString += " | "
         fileString += "\nP2 Deck: "
         for i in range(len(self.initialP1Hand)):
             fileString += self.initialP2Hand[i].name
+            if (self.p2Hidden[i]): fileString += "(Hidden)"
             if (i != 4):
                 fileString += " | "
         fileString += "\nCards played: "
@@ -1209,12 +1763,20 @@ You can see your opponent has: (1) Byakko(u: 1, r:7, d:7, l:7), (2) Hien(u: 10, 
                     if (i == self.gameboard[j].turnPlayed):
                         fileString += self.gameboard[j].card.name + ": " + str(self.gameboard[j].pos % 3) + ", " + str(self.gameboard[j].pos // 3)
                         fileString += " | "
-        if (self.score > 0):
-            fileString += "P1 Win"
-        elif (self.score == 0):
-            fileString += "Tie"
+        if isP1:
+            if (self.score > 0):
+                fileString += "P1 Win"
+            elif (self.score == 0):
+                fileString += "Tie"
+            else:
+                fileString += "P1 Loss"
         else:
-            fileString += "P1 Loss"
+            if (self.score < 0):
+                fileString += "P2 Win"
+            elif (self.score == 0):
+                fileString += "Tie"
+            else:
+                fileString += "P2 Loss"
         return fileString
 class GameSquare(object):
     def __init__(self, card, turn, pos):
@@ -1225,3 +1787,57 @@ class GameSquare(object):
 
     def clone(self):
         return GameSquare(self.card, self.turnPlayed, self.pos)
+
+class TreeNode(object):
+    """docstring for TreeNode."""
+
+    def __init__(self, data, history, isP1):
+        super(TreeNode, self).__init__()
+        self.choice = history[0] #between 0 and 44
+        self.turn = 9 - len(history)
+        self.wins = 0
+        self.isP1 = isP1
+        if isP1:
+            if data[0] > 0: self.wins = 1
+        else:
+            if data[2] > 0: self.wins = 1
+        self.total = 1
+        if len(history) == 1:
+            self.children = []
+        else:
+            self.children = [TreeNode(data, history[1:], not isP1)]
+
+    def getChild(self, choice):
+        for i in range(self.children):
+            if self.children[i].choice == choice:
+                return self.children[i]
+        return None
+    def addChild(self, data, history, isP1):
+        #check if this child exists
+        if isP1:
+            if data[0] > 0: self.wins += 1
+        else:
+            if data[2] > 0: self.wins += 1
+        self.total += 1
+        for i in range(len(self.children)):
+            if self.children[i].choice == history[0]:
+
+                self.children[i].addChild(data, history[1:], isP1)
+                return
+        self.children.append(TreeNode(data, history[1:], not isP1))
+
+    def doesChildExist(self, history):
+        if (len(self.children) == 0): return True
+        if len(history) == 0: return True
+        for i in range(len(self.children)):
+            if self.children[i].choice == history[0]:
+                return self.children[i].doesChildExist(history[1:])
+        return False
+
+    def isDead(self):
+        if (len(self.children) == 0): return True
+        totalDead = 0
+        for i in range(len(self.children)):
+            #print (self.children[i])
+            if self.children[i].isDead(): totalDead +=1
+        return totalDead >= ((9 - self.turn) + 1) // 2 * (9 - self.turn)
