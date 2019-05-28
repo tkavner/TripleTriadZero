@@ -284,7 +284,9 @@ class TripleTriadBot(object):
             nplist[0] = (npinput, npoutput)
         print(npinput.shape)
         return nplist
-
+    '''
+    Formats game data for the
+    '''
     def formatGameFiveStar(self, gamedatafile):
 
         with open(gamedatafile) as f:
@@ -657,6 +659,7 @@ class TripleTriadBot(object):
             for i in range(9):
                 if gbCopies[0].gameboard[i].turnPlayed == 7:
                     return (gbCopies[0].gameboard[i].card, gbCopies[0].gameboard[i].pos)
+        searchExhausted = False
         while int(round(time.time() * 1000)) - startTime < timeToEstimate:
             gbCopy = gameboard.clone()
             '''
@@ -675,6 +678,7 @@ class TripleTriadBot(object):
                         bestNode = i
                         bestNodeValue = nodeValue
             if (bestNode < 0): #this means we've exhausted our search
+                searchExhausted = True #if this happens we need a new metric to decide the best node
                 break
             data, card, pos, history = self.MCTS2(gameboard, 9, isP1, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = topNodes[bestNode])
             topNodes[bestNode].addChild(data, history, isP1)
@@ -682,6 +686,8 @@ class TripleTriadBot(object):
         bestNodeValue = -100000
         for i in range(len(topNodes)):
             nodeValue = topNodes[i].total
+            if searchExhausted:
+                nodeValue = topNodes[i].wins
             if nodeValue > bestNodeValue:
                 bestNode = i
                 bestNodeValue = nodeValue
@@ -766,9 +772,11 @@ class TripleTriadBot(object):
                 continue
 
             if tree is not None:
-                if (tree.isDead()):
-                    i1+=1
-                    continue
+                if tree.getChild(topChoiceIndex) is not None:
+                    if (tree.getChild(topChoiceIndex).isDead()):
+                        i1+=1
+                        continue
+                tree = tree.getChild(topChoiceIndex)
 
 
             validIndexes.append(topChoiceIndex)
@@ -1808,7 +1816,7 @@ class TreeNode(object):
             self.children = [TreeNode(data, history[1:], not isP1)]
 
     def getChild(self, choice):
-        for i in range(self.children):
+        for i in range(len(self.children)):
             if self.children[i].choice == choice:
                 return self.children[i]
         return None
