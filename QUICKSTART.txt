@@ -1,7 +1,7 @@
 Quickstart:
 
 >> import ttnnbot4
->> bot = ttnnbot4.TripleTriadBot(44)
+>> bot = ttnnbot4.TripleTriadBot(42)
 >> bot.playAgainstBot()
 
 To play against older versions of the network use (note that not all versions are included in this repository):
