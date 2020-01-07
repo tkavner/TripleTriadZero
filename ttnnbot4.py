@@ -404,19 +404,17 @@ class TripleTriadBot(object):
     Call this to train the network
     Optional parameters are depretacted
     '''
-    def mainmethod(self, iterations = 5, learningrate = 0.2, numgames=100, shouldBeRandom = False, shouldP1Random = False, shouldP2Random = False):
+    def mainmethod(self, iterations = 5, learningrate = 0.2, numgames=100, shouldTrainFiveStar = False):
 
         for i in range(1000):
-            handdata = self.play_games(number_of_games = numgames, outputfile = "ttnn/thousandgames{}.txt".format(i), shouldBeRandom = True, shouldP1Random = shouldP1Random, shouldP2Random = shouldP2Random)
+            handdata = self.play_games(number_of_games = numgames, outputfile = "ttnn/thousandgames{}.txt".format(i))
             nplist = self.formatGame("ttnn/thousandgames{}.txt".format(i))
 
             for j in range(1):
-                if shouldP1Random and j % 2 == 0: continue
-                if shouldP2Random and j % 2 == 1: continue
                 print("Processing network {}".format(j))
                 datasetIn, datasetOut = nplist[0]
                 self.net[0].fit(datasetIn, datasetOut, epochs=iterations)
-                self.trainFiveStar(iterations = iterations, gameNumber = i)
+                if shouldTrainFiveStar: self.trainFiveStar(iterations = iterations, gameNumber = i)
                 tf.keras.models.save_model(self.net[0], "ttnn/finalnetwork4tf{}.txt".format(self.currentModelID + 1))
                 print("Saved network {} to file!".format(0))
             self.test_network(handdata, number_of_games = numgames, shouldUpdate = True)
@@ -434,6 +432,7 @@ class TripleTriadBot(object):
             #testnet.append(network2.load("ttnn/archive/" + directory + "finalnetwork{}.txt".format(i)))
         p1 = self.generate_random_hand()
         p2 = self.generate_random_hand()
+        #describes if the HUMAN PLAYER is P1
         youAreP1 = isP1 = random.randint(0,1)==0
         try:
             if playerHand is not None:
@@ -459,8 +458,8 @@ class TripleTriadBot(object):
         random.shuffle(p2)
         gameboard = Gameboard(p1, p2)
         for j in range(9):
-            inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = True)
-            outputFromNN = None
+            #inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = not youAreP1)
+            #outputFromNN = None
             cardToPlay, posToPlay = (None , 0)
             if j % 2 == 0:
                 if youAreP1:
@@ -492,8 +491,8 @@ class TripleTriadBot(object):
                     gameboard.playCard(cardToPlay, posToPlay)
                 else:
                     print("Thinking...")
-                    outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), not youAreP1, timeToEstimate = 7000)
+                    #outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.net[0], timeToEstimate = 7000)
                     #print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     #print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     #print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
@@ -503,8 +502,8 @@ class TripleTriadBot(object):
             else:
                 if youAreP1:
                     print("Thinking...")
-                    outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), not youAreP1, timeToEstimate = 7000)
+                    #outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                    cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.net[0], timeToEstimate = 7000)
                     #print("Odds of bot victory: {}%".format(int(100 * mctsResults[0] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     #print("Odds of bot tie: {}%".format(int(100 * mctsResults[1] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
                     #print("Odds of bot loss: {}%".format(int(100 * mctsResults[2] / (mctsResults[0] + mctsResults[1] + mctsResults[2]))))
@@ -561,15 +560,18 @@ class TripleTriadBot(object):
                 self.playerrecord[2] += 1
         print("Your record is: {}W/{}T/{}L.".format(self.playerrecord[0], self.playerrecord[1], self.playerrecord[2]))
 
-    def MCTS2Top(self, gameboard, isP1, timeToEstimate = 2000, training = False, initialNodes = 6):
+
+    def MCTS2Top(self, gameboard, canSeeWholeHand, networkToPredictWith, timeToEstimate = 2000, training = False, initialNodes = 6):
 
         startTime = int(round(time.time() * 1000))
+        #we (the predictor) are p1 if we can see our entire hand on an even turn or if we cannot see our entire hand on a odd (p2) turn
+        isP1 = (canSeeWholeHand and gameboard.turn % 2 == 0) or ((not canSeeWholeHand) and gameboard.turn % 2 == 1)
         inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
         fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
         fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29]))
 
         inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = fiveStarPrediction)
-        outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+        outputFromNN = networkToPredictWith.predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
         topNodes = []
         b = np.reshape(outputFromNN, (45)).tolist()
          #when training, slightly randomize the outputs
@@ -635,29 +637,35 @@ class TripleTriadBot(object):
             pos = validIndexes[i] // 5
 
             gbCopy = gameboard.clone()
-            if (isP1):
+            if (canSeeWholeHand):
                 if gameboard.turn % 2 == 0:
+                    #in this case we are calculating for the hand without hidden cards
                     redhand = [value for value in gameboard.initialP1Hand]
                     card = redhand[validIndexes[i] % 5]
                 else:
+                    #in this case we are predicting for the hand with hidden cards
                     redhand = [value for value in gameboard.initialP2Hand]
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
             else:
                 if gameboard.turn % 2 == 0:
                     redhand = [value for value in gameboard.initialP1Hand]
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    #if we cannot see the whole hand, and its turn 0, 2, 4, 6, or 8, then we are p2
+                    redhand = gameboard.flipHiddenCards(redhand, False, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
+                    gbCopy.p1Hand.remove(gameboard.initialP1Hand[validIndexes[i] % 5])
                 else:
                     redhand = [value for value in gameboard.initialP2Hand]
+                    #if we cannot see the whole hand and its turn 1, 3, 5, or 7, then we are p1
+                    redhand = gameboard.flipHiddenCards(redhand, True, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
+                    gbCopy.p2Hand.remove(gameboard.initialP2Hand[validIndexes[i] % 5])
+
 
             gbCopy.playCard(card, pos)
-
             gbCopies.append(gbCopy)
 
         for i in range(len(validIndexes)):
-            data, card, pos, history = self.MCTS2(gbCopies[i], 9, isP1, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = None)
+            data, card, pos, history = self.MCTS2(gbCopies[i], 9, canSeeWholeHand, networkToPredictWith, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = None)
             history = [validIndexes[i]] + history
             if (len(history) != 0):
                 topNodes.append(TreeNode(data, history, isP1, gbCopies[i].turn))
@@ -687,7 +695,8 @@ class TripleTriadBot(object):
             if (bestNode < 0): #this means we've exhausted our search
                 searchExhausted = True #if this happens we need a new metric to decide the best node
                 break
-            data, card, pos, history = self.MCTS2(gbCopies[bestNode], 9, isP1, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = topNodes[bestNode])
+            #we use "not canSeeWholeHand" because we're talking about the turn after this one
+            data, card, pos, history = self.MCTS2(gbCopies[bestNode], 9, not canSeeWholeHand, networkToPredictWith, training = training, fiveStarPrediction = fiveStarPrediction, desiredValidIndexes = 1, tree = topNodes[bestNode])
             topNodes[bestNode].addChild(data, history)
         bestNode = -100000
         bestNodeValue = -100000
@@ -700,11 +709,14 @@ class TripleTriadBot(object):
                 bestNodeValue = nodeValue
         return self.outputValueToCardAndPos(gameboard, topNodes[bestNode].choice)
 
-    def MCTS2(self, gameboard, turnsToCheck, isP1, training = False, shouldBeRandom = False, topLayer = True, layerOutput = None, fiveStarPrediction = None, desiredValidIndexes = 1, playToTie = False, tree = None):
-        startTime = int(round(time.time() * 1000))
 
+    def MCTS2(self, gameboard, turnsToCheck, canSeeWholeHand, networkToPredictWith, training = False, shouldBeRandom = False, topLayer = True, layerOutput = None, fiveStarPrediction = None, desiredValidIndexes = 1, playToTie = False, tree = None):
+        startTime = int(round(time.time() * 1000))
+        isP1 = (canSeeWholeHand and gameboard.turn % 2 == 0) or ((not canSeeWholeHand) and gameboard.turn % 2 == 1)
         #special conditions? Ie do we need to continue searching
         if(turnsToCheck <= 0 or gameboard.turn >= 8):
+            #if canSeeWholeHand on turn 9, then we are p1
+            #if not canSeeWholeHand on turn 9, then we are p2
             if isP1:
                 #print ("Time to complete MCTS with searchlevel {}: {} ms".format(turnsToCheck, int(round(time.time() * 1000)) - startTime))
                 if gameboard.score > 0: return ([1, 0, 0], None, -1, [])
@@ -726,7 +738,7 @@ class TripleTriadBot(object):
             inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
             fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
             inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])))
-            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+            outputFromNN = networkToPredictWith.predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
             #print("5 star is believed to be: {}".format(self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])).name))
 
 
@@ -802,29 +814,33 @@ class TripleTriadBot(object):
                 card = gameboard.initialP2Hand[validIndexes[i] % 5]
             pos = validIndexes[i] // 5
             gbCopy = gameboard.clone()
-            if (isP1):
+            if (canSeeWholeHand):
                 if gameboard.turn % 2 == 0:
                     redhand = [value for value in gameboard.initialP1Hand]
                     card = redhand[validIndexes[i] % 5]
                 else:
                     redhand = [value for value in gameboard.initialP2Hand]
-                    #print(len(redhand))
-                    #print(len(redhand))
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
             else:
                 if gameboard.turn % 2 == 0:
                     redhand = [value for value in gameboard.initialP1Hand]
                     #print(len(bluehand))
-                    redhand = gameboard.flipHiddenCards(redhand, isP1, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
+                    #if we cannot see the whole hand, and its turn 0, 2, 4, 6, or 8, then we (the predictor) are p2
+                    redhand = gameboard.flipHiddenCards(redhand, False, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
+                    #its important that the hidden card actually gets played from the original hand, else it'll be available next time!
+                    gbCopy.p1Hand.remove(gameboard.initialP1Hand[validIndexes[i] % 5])
                 else:
                     redhand = [value for value in gameboard.initialP2Hand]
+                    #conversely if we cannot see the whole hand and its an odd turn, we (the predictor) must be p1
+                    redhand = gameboard.flipHiddenCards(redhand, True, self.allcards, self.normal, self.legendary, self.cardnamedict, fiveStarPrediction = fiveStarPrediction)
                     card = redhand[validIndexes[i] % 5]
-
+                    #its important that the hidden card actually gets played from the original hand, else it'll be available next time!
+                    gbCopy.p2Hand.remove(gameboard.initialP2Hand[validIndexes[i] % 5])
             gbCopy.playCard(card, pos)
 
             gbCopies.append(gbCopy)
+
         history = [validIndexes[0]]
         if turnsToCheck > 1:
             #list of all inputs for the neural network
@@ -840,37 +856,42 @@ class TripleTriadBot(object):
                 inputsForNN += gbCopies[i].getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]])))
 
             #feed data to our network, we reshape to make sure its the right format for both the input and the output
-            outputsFromNN = np.reshape(self.net[0].predict(np.reshape(np.array(inputsForNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes), 45))
+            outputsFromNN = np.reshape(networkToPredictWith.predict(np.reshape(np.array(inputsForNN, order='F', ndmin = 4), (-1, 5, 29, 1))), (len(validIndexes), 45))
 
             #now we ship off the values to next layer of the MCTS
             for i in range(len(validIndexes)):
                 fiveStarPred = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, 29 * fiveStarOutputsFromNN[i * 4], 29 * fiveStarOutputsFromNN[i * 4 + 1], 29 * fiveStarOutputsFromNN[i * 4 + 2], 29 * fiveStarOutputsFromNN[i * 4 + 3]]))
                 if tree is not None:
 
-                    mctsdata, card, pos, childHistory = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = fiveStarPred, desiredValidIndexes = desiredValidIndexes, tree = tree.getChild(validIndexes[i]))
+                    mctsdata, card, pos, childHistory = self.MCTS2(gbCopies[i], turnsToCheck - 1, not canSeeWholeHand, networkToPredictWith, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = fiveStarPred, desiredValidIndexes = desiredValidIndexes, tree = tree.getChild(validIndexes[i]))
+                    history += childHistory
+                    scores[i] = mctsdata
                 else:
-                    mctsdata, card, pos, childHistory = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = fiveStarPred, desiredValidIndexes = desiredValidIndexes, tree = None)
+                    mctsdata, card, pos, childHistory = self.MCTS2(gbCopies[i], turnsToCheck - 1, not canSeeWholeHand, networkToPredictWith, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, layerOutput = outputsFromNN[i], fiveStarPrediction = fiveStarPred, desiredValidIndexes = desiredValidIndexes, tree = None)
+                    history += childHistory
+                    scores[i] = mctsdata
 
 
-                history += childHistory
-                scores[i] = mctsdata
         else:
             #then next turn will not be using its output data from the neural network, so we simply have it skip calculating the final turn
             for i in range(len(validIndexes)):
                 if tree is not None:
-                    mctsdata, card, pos, childHistory  = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, tree = tree.getChild(validIndexes[i]))
+                    mctsdata, card, pos, childHistory  = self.MCTS2(gbCopies[i], turnsToCheck - 1, not canSeeWholeHand, networkToPredictWith, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, tree = tree.getChild(validIndexes[i]))
+                    history += childHistory
+                    scores[i] = mctsdata
                 else:
-                    mctsdata, card, pos, childHistory  = self.MCTS2(gbCopies[i], turnsToCheck - 1, isP1, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, tree = None)
-                history += childHistory
-                scores[i] = mctsdata
+                    mctsdata, card, pos, childHistory  = self.MCTS2(gbCopies[i], turnsToCheck - 1, not canSeeWholeHand, networkToPredictWith, training = training, shouldBeRandom = shouldBeRandom, topLayer = False, tree = None)
+                    history += childHistory
+                    scores[i] = mctsdata
 
         #score summation / choice evaluation
         bestScore = -10000000
         bestIndex = -1
         scoreIndex = -70
+        #mostly useless atm
         for i in range(len(validIndexes)):
             indexScore = 0
-            if isP1:
+            if canSeeWholeHand:
                 if gameboard.turn % 2 == 0:
                     indexScore = scores[i][0] - scores[i][2] - 0.99 * scores[i][1]
                 else:
@@ -965,7 +986,7 @@ class TripleTriadBot(object):
             inputFor5SNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1)
             fiveStarOutputFromNN = np.reshape(self.fivestarnet[0].predict(np.reshape(np.array(inputFor5SNN, order='F', ndmin = 4), (-1, 5, 29, 1))), 4).tolist()
             inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict, isP1 = isP1, fiveStarPrediction = self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])))
-            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+            outputFromNN = networkToPredictWith.predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
             #print("5 star is believed to be: {}".format(self.fiveStarWildToCard(Card(["Five Star Prediction", 5, fiveStarOutputFromNN[0] * 29, fiveStarOutputFromNN[1] * 29, fiveStarOutputFromNN[2] * 29, fiveStarOutputFromNN[3] * 29])).name))
 
 
@@ -1187,22 +1208,23 @@ class TripleTriadBot(object):
                     inputForNN = gameboard.getGameboardInputArray(self.allcards, self.normal, self.legendary, self.cardnamedict)
                     outputFromNN = None
                     cardToPlay, posToPlay = (None, 0)
+
                     if j % 2 == 0:
                         if isP1:
-                            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
+                            #outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.net[0])
                         else:
-                            outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), False)
+                            #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
 
                     else:
                         if isP1:
-                            outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), False)
+                            #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
 
                         else:
-                            outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
+                            #outputFromNN = self.net[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
+                            cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.net[0])
 
                     #print(outputFromNN.shape)
                     gameboard.playCard(cardToPlay, posToPlay)
@@ -1304,9 +1326,8 @@ class TripleTriadBot(object):
     Internal method of mainmethod (the one that trains the network)
     Returns the hands played if you want to test on the same data as the training data or something (not currently implemented)
     Also writes game logs to file specified by output file
-    All other optional parameters are deprecated
     '''
-    def play_games(self, number_of_games = 1000, outputfile = "thousandgames.txt", shouldBeRandom = False, shouldP1Random = False, shouldP2Random = False):
+    def play_games(self, number_of_games = 1000, outputfile = "thousandgames.txt"):
         stringedGamesPlayed = ""
         gamedata = []
         random.seed(datetime.datetime.now())
@@ -1326,17 +1347,17 @@ class TripleTriadBot(object):
                 if j % 2 == 0:
                     if isP1:
                         #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
                     else:
                         #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), False)
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
                 else:
                     if isP1:
                         #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), False)
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
                     else:
                         #outputFromNN = self.testnet[0].predict(np.reshape(np.array(inputForNN, order='F', ndmin = 4), (-1, 5, 29, 1)))
-                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True)
+                        cardToPlay, posToPlay = self.MCTS2Top(gameboard.clone(), True, self.testnet[0])
                 gameboard.playCard(cardToPlay, posToPlay)
                 #print ("Time to complete a turn: {} ms".format(i, int(round(time.time() * 1000)) - startTurnTime))
             gamedata.append((p1, p2, gameboard.score))
