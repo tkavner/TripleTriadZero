@@ -1,0 +1,53 @@
+======================================================
+
+Overview
+
+======================================================
+
+Triple Triad Zero (or Triple Triad Neural Network) is my attempt to learn about neural nets. Currently the network is a proof of concept. It works similarly to Alpha Go Zero, in that it is a combination of a Neural Net equipped with a Monte Carlo Tree Search to increase its abilities and train itself.
+
+It plays a simple card game called Triple Triad. To see how it is played, check the HOWTOPLAY.txt file.
+
+While a neural net can create a relatively strong AI assuming you play with random cards, this AI is comprised of three different neural networks. Currently the three networks are as follows:
+
+Predictor Network: Attempts to unveil any hidden cards 
+Selector Network: Attempts to take random decks and improve them via single card replacement
+Choice Network: Chooses paths for a Monte Carlo Tree Search to take using data from the Predictor network. (which in turn determines which move is made)
+
+
+======================================================
+
+About each Network
+
+======================================================
+
+------------------------------------------------------
+Selector Network
+------------------------------------------------------
+
+The Selector Network works by being given 4 of 5 cards in a deck, and asked to select a new card to match the other 4.
+
+Training: The Selector Network is trained by playing matches with the Choice and Predictor Networks with the original fifth card and playing the decks against random hands. The Selection with more wins is the correct Selection for our training data.
+
+------------------------------------------------------
+Predictor Network
+------------------------------------------------------
+
+
+
+======================================================
+
+Challenges of working with three networks
+
+======================================================
+
+------------------------------------------------------
+Low accuracy of the Predictor network and convergence with the Selector Network
+------------------------------------------------------
+
+If the selector network continually selects the same cards for replacement, the predictor network can easily obtain an artificially high accuracy of about 40% by just guessing the cards the selector networks wants to choose, causing the two networks to "converge" on their selections 
+
+------------------------------------------------------
+Implementation of the MCTS
+------------------------------------------------------
+Normally a MCTS TODO FINISH challenges
