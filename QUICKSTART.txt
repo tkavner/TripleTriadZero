@@ -14,6 +14,10 @@ To play a bot you have made:
 
 >> bot.playAgainstBot()
 
+To play the preloaded network:
+
+Run premade.py
+
 ==========================================================================
 
 Quickstart (old):
@@ -31,76 +35,3 @@ Where n is the older version number. To replay the network:
 
 >> bot.playAgainstBot()
 
-=======================================================================
-
-Details for those not familiar with Triple Triad
-
-Overview
-
-Triple Triad is a card based mini game found in the Square Enix titles Final Fantasy IX (FFXI) and Final Fantasy XIV (FFXIV). In its native environments a player goes around the main game collecting Triple Triad cards of various strength to be used in the game.
-
-Cards
-
-Cards contain five important elements: a star count, a right face value, a left face value, an up face value, and a down face value. Star count is only used to determine the legitimacy 
-
-Hands/Decks
-
-A deck consists of any combination of four three star or lesser star valued cards, and one card of any star value, for a total of five cards. Decks may not contain duplicate cards, ie each card must be unique in name.
-
-For simplicity, currently decks are randomly generated from 4 three star cards and 1 five star card.
-
-The cards and deck building rules used in our program are the cards capable of being found in Final Fantasy XIV.
-
-A hand consists of any cards currently playable by a player.
-
-The Gameboard
-
-Triple Triad is played on a 3 by 3 Tic Tac Toe Style Gameboard:
-
-    0     1     2
- -------------------
- |     |     |     |
-0|     |     |     |
- |     |     |     |
- -------------------
- |     |     |     |
-1|     |     |     |
- |     |     |     |
- -------------------
- |     |     |     |
-2|     |     |     |
- |     |     |     |
- -------------------
-
-
-Rules
-
-Players start by selecting a deck of their choice to put into play for the match (For now decks are randomly generated and assigned as according to the criteria described in "Decks"). Players may not see the contents of each other's deck.
-
-Players take turns placing cards in one of the nine positions on the gameboard, removing it from their hand. Cards may only be placed in unoccupied board positions until all board positions are filled. The card is assigned ownership of the player that placed it.
-
-When a player places a card, all the cards under ownership of the opponent directly adjacent to the card placed are checked. Checking is a simple process of comparing the adjacent sides of the adjacent cards. Specifically, adjacent side checks work as follows:
-
-A card placed to the RIGHT of an opponent's card checks if the card placed's RIGHT value is greater than the opponent's LEFT value.
-A card placed to the LEFT of an opponent's card checks if the card placed's LEFT value is greater than the opponent's RIGHT value.
-A card placed ABOVE an opponent's card checks if the card placed's UP value is greater than the opponent's card's LEFT value.
-A card placed BELOW an opponent's card checks if the card placed's DOWN value is greater than the opponent's card's UP value.
-
-To simplify:
-
-Card was place to the || Side of card placed's to compare | Side of Opponent's card to compare
-_____ of the opponent ||                              	  |
-RIGHT		      ||
-LEFT
-ABOVE
-BELOW
-Special / Regional Variant Rules:
-
-In the worlds of Final Fantasy, there are special rules that Triple Triad can be played with.
-
-All Open: Players may see each other's deck for the duration of the match
-Three Open: Players may see three randomly selected cards from each other's hand for the duration of the match. This rule is present in matches played by both ttnnbot3 and ttnnbot4, and is the only rule in ttnnbot4
-Order: Cards must be played in the order they appear in the deck
-Chaos: Each turn, the game will select a random card in your hand 
-Same: If a player places a card next to a card controlled by the opponent, and the card placed has at least one more card (which can belong to either player) adjacent, and the adjacent card's adjacent side
-Ouroboros: You are allowed to capture your own cards, ie if you place a card next to a card you own, your own card is checked for points.
